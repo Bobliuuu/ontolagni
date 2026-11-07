@@ -92,9 +92,9 @@ def test_quick_load_and_query(tmp_path):
             lines.append(json.dumps({"path": p, "sha": hashlib.sha256(p.encode()).hexdigest(), "size": 10}))
     nodes, meta = build(lines); write(nodes, meta, str(tmp_path))
     t = time.process_time(); o = Onto(str(tmp_path)); load = time.process_time() - t  # CPU time: robust to a loaded box
-    t = time.perf_counter()
+    t = time.process_time()
     for _ in range(50): o.find("camp77 seat3 x log")
-    q = (time.perf_counter() - t) / 50
+    q = (time.process_time() - t) / 50
     assert load < 1.5 and q < 0.02, (load, q, len(o.nodes))
 
 
