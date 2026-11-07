@@ -44,6 +44,8 @@ class Onto:
                 post = [(i, c) for k, ps in self._inv.items() if k.startswith(w) for i, c in ps] if len(w) >= 3 else []
             if not post:
                 continue
+            if len(post) > 0.3 * N and len(q) > 1:
+                continue  # near-universal term: ~zero idf, but scanning it costs O(N)
             idf = math.log(1 + (N - len(post) + .5) / (len(post) + .5))
             for i, c in post:
                 L = self._len[i]
