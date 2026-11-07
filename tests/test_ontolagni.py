@@ -61,7 +61,7 @@ def test_where_longest_prefix(onto):
     o, _ = onto
     w = o.where("logs/deepseek-h100-20260115/dispatch/jobs/b2-t3-01/vllm.log")
     ids = [x["id"] for x in w]
-    assert ids[0] == "logs/deepseek-h100-20260115/dispatch/jobs"  # deepest owner first
+    assert ids[0] == "logs/deepseek-h100-20260115/dispatch"  # deepest owner (max_depth=3)
     assert ids[-2:] == ["logs/deepseek-h100-20260115", "logs"]
     assert o.where("nonexistent/x") == []
 
