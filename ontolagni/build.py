@@ -56,7 +56,7 @@ def group_key(path: str, depth: int) -> str:
     return "/".join(p[:depth]) if len(p) > depth else None
 
 
-def build(catalog_lines, max_depth: int = 3, store_label: str = "") -> tuple[list[dict], dict]:
+def build(catalog_lines, max_depth: int = 4, store_label: str = "") -> tuple[list[dict], dict]:
     """Nodes at depth 1 (root), 2 (campaign/dataset) and 3 (sub-group). Files shallower than a depth belong to their parent only."""
     acc: dict[str, dict] = {}
     cat_h = hashlib.sha256()
