@@ -45,12 +45,12 @@ def render(nodes, meta, out_dir, store_label=""):
                 L += ["", f"Read first: `tracedb get {c['readme']} --head 8192`"]
             L.append("")
     if boxes:
-        L += ["## Boxes: how to get in", "", "Everything here is derived from `~/.ssh/config` (key *paths* only, never key material).", "",
-              "| alias | provider | user | key | via | docs |", "|---|---|---|---|---|---|"]
+        L += ["## Boxes: how to get in", "", "Derived from `~/.ssh/config`. Key material is NOT in this store: private keys live KMS-encrypted in the separate vault store at the `vault key` path (`tracedb --store $VAULT_STORE get <path>`).", "",
+              "| alias | provider | user | key | vault key | via | docs |", "|---|---|---|---|---|---|---|"]
         for b in boxes:
             via = (b.get("proxy") or "direct").replace("|", "\\|")[:70]
             docs = ", ".join(f"`{d}`" for d in b.get("docs", [])[:3])
-            L.append(f"| `{b['alias']}` | {b.get('provider','?')} | {b.get('user','?')} | `{b.get('key','?')}` | {via} | {docs} |")
+            L.append(f"| `{b['alias']}` | {b.get('provider','?')} | {b.get('user','?')} | `{b.get('key','?')}` | `{b.get('key_vault','-')}` | {via} | {docs} |")
     open(os.path.join(out_dir, "ONTOLOGY.md"), "w").write("\n".join(L) + "\n")
 
     agent_md = f"""# AGENT.md: ontolagni + traceDB protocol
@@ -59,7 +59,7 @@ Store: {store_label or meta.get('store')}  (env TRACEDB_STORE). Auth: AWS profil
 2. `tracedb plan <path>` -> bytes/requests, no fetch. Default budget 8 MiB (`TRACEDB_MAX_BYTES`).
 3. `tracedb get <path> --head N | --tail N | --start A --end B`.
 4. Content questions: `tracedb search "words" [--prefix traces/codex/] [--paths]` -> path, offset, snippet, exact `get` command.
-5. Boxes: `ontolagni find <alias>` -> boxes/<alias> (ssh alias, user, key path, proxy, docs). Use `ssh <alias>`; never print keys.
+5. Boxes: `ontolagni find <alias>` -> boxes/<alias> (ssh alias, user, key path, vault path, proxy, docs). Use `ssh <alias>`; never print keys. Secrets: separate vault store (env VAULT_STORE, KMS-encrypted); main store holds only redacted text.
 Layout: repos/<project>/..  traces/<source>/..  config/..  boxes/<alias> (synthetic)  index/fts.sqlite
 Secrets were redacted at ingest as `[REDACTED:*]`; skipped files are listed in config/ingest-skips.jsonl.
 `ontolagni verify <catalog.jsonl>` proves this ontology matches the store.
@@ -70,7 +70,7 @@ Secrets were redacted at ingest as `[REDACTED:*]`; skipped files are listed in c
            "roots": {r["id"]: {"files": r["files"], "bytes": r["bytes"]} for r in roots},
            "projects": {c["id"]: {k: c[k] for k in ("files", "bytes", "summary", "readme", "children") if k in c} for c in (kids("repos") if "repos" in by else [])},
            "trace_sources": {c["id"]: {"files": c["files"], "bytes": c["bytes"]} for c in (kids("traces") if "traces" in by else [])},
-           "boxes": {b["alias"]: {k: b[k] for k in ("ssh", "user", "key", "proxy", "provider", "docs") if k in b} for b in boxes},
+           "boxes": {b["alias"]: {k: b[k] for k in ("ssh", "user", "key", "key_vault", "proxy", "provider", "docs") if k in b} for b in boxes},
            "recipes": {"find": "ontolagni find <words>", "plan": "tracedb plan <path>", "read": "tracedb get <path> --head 4096",
                        "grep": "tracedb search \"<words>\" --prefix <p>", "box": "ontolagni find <alias> --kind box"}}
     json.dump(idx, open(os.path.join(out_dir, "agent_index.json"), "w"), indent=1, sort_keys=True)

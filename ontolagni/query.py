@@ -249,7 +249,7 @@ class Onto:
         c = {"id": n["id"], "kind": n.get("kind"), "files": n["files"], "bytes": n["bytes"],
              "formats": n["formats"]}
         for k in ("model", "chip", "date", "topic", "ts_min", "ts_max", "project", "source", "summary", "readme",
-                  "alias", "provider", "ssh", "user", "key", "proxy", "host_kind", "purpose", "status", "docs", "hostname"):
+                  "alias", "provider", "key_vault", "ssh", "user", "key", "proxy", "host_kind", "purpose", "status", "docs", "hostname"):
             if k in n: c[k] = n[k]
         if score is not None: c["score"] = round(score, 3)
         # exact next step for the agent: always plan first, never pull blindly

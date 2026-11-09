@@ -54,6 +54,9 @@ def box_nodes(config_texts: dict, docs: dict) -> list[dict]:
         for needle, prov in HINTS:
             if needle in low:
                 n["provider"] = prov; break
+        k = n.get("key", "")
+        if k.startswith("~/.ssh/"):  # private key lives encrypted in the vault store (KMS), same relative path
+            n["key_vault"] = "home/ssh/" + k[len("~/.ssh/"):]
         n["config_files"] = sorted(set(seen[alias]))
         generic = len(alias) < 5 and not re.search(r"[0-9-]", alias)
         pat = re.compile(rf"(?<![A-Za-z0-9_-]){re.escape(alias)}(?![A-Za-z0-9_-])")
