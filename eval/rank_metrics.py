@@ -7,12 +7,15 @@ Relevance: a result is relevant if its id equals a `rel` pattern, or (pattern en
 import gzip, json, os, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# The eval's data (a real catalog and its labelled queries) is data, not code: it lives outside this repository, in
+# ONTOLAGNI_EVAL_DIR (catalog.jsonl.gz, queries.json, queries_heldout.json). Without it the ranking eval is skipped.
+EVAL_DIR = os.environ.get("ONTOLAGNI_EVAL_DIR", "")
 sys.path.insert(0, os.path.dirname(HERE))
 from ontolagni import build, write, Onto  # noqa: E402
 
 
 def load_onto(tmp):
-    with gzip.open(os.path.join(HERE, "real_catalog.jsonl.gz"), "rt") as f:
+    with gzip.open(os.path.join(EVAL_DIR, "catalog.jsonl.gz"), "rt") as f:
         nodes, meta = build(f)
     write(nodes, meta, tmp)
     return Onto(tmp)
@@ -45,7 +48,7 @@ def evaluate(onto, queries, limit=10):
 
 def main():
     name = "queries_heldout.json" if "--heldout" in sys.argv else "queries.json"
-    queries = json.load(open(os.path.join(HERE, name)))
+    queries = json.load(open(os.path.join(EVAL_DIR, name)))
     with tempfile.TemporaryDirectory() as d:
         onto = load_onto(d)
         # sanity: every relevance pattern matches at least one real node

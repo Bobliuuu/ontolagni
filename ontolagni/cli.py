@@ -3,7 +3,9 @@ from .build import build, write
 from .render import render
 from .query import Onto, verify
 
-DEF = os.environ.get("ONTOLAGNI_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ontology")
+# Where the ontology (data) lives: never inside this code checkout. ONTOLAGNI_DIR, else $XDG_DATA_HOME/ontolagni.
+DEF = os.environ.get("ONTOLAGNI_DIR") or os.path.join(
+    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "ontolagni")
 
 
 def main(argv=None):
