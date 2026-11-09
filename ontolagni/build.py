@@ -12,9 +12,9 @@ CAMPAIGN_RE = re.compile(
 MODELS = ["glm-5.3-flash", "kimi-k3", "gemma-4-31b", "qwen3.8-27b", "qwen3.5", "qwen", "gemma", "glm", "kimi", "deepseek"]
 CHIPS = ["b300", "h100", "a100", "g7e", "a10g", "tiramisu", "l4", "g5", "g6"]
 ROOT_KIND = {"config": "config", "repos": "repo", "traces": "trace", "index": "index", "boxes": "box", "logs": "logs", "research": "research", "experiments": "experiment", "data": "dataset",
-             "docs": "docs", "reports": "report", "bugs": "bug", "evals": "eval", "traces": "trace", "rsi": "rsi-store"}
+             "docs": "docs", "reports": "report", "bugs": "bug", "evals": "eval", "traces": "trace"}
 FMT = {".jsonl": "jsonl", ".json": "json", ".md": "md", ".log": "log", ".csv": "csv", ".tsv": "tsv",
-       ".gz": "gz", ".txt": "txt", ".py": "py", ".sh": "sh", ".sqlite": "sqlite", ".so": "bin"}
+       ".gz": "gz", ".txt": "txt", ".py": "py", ".sh": "sh", ".sqlite": "sqlite", ".so": "bin", ".npy": "npy", ".npz": "npz", ".pt": "pt", ".bin": "bin", ".parquet": "parquet", ".pkl": "pkl", ".png": "png", ".pdf": "pdf", ".gif": "gif", ".zst": "zst", ".tpq": "tpq"}
 SCHEMA_VERSION = 2
 
 
@@ -70,7 +70,9 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
         if not line.strip():
             continue
         r = json.loads(line)
-        path, size, sha = r["path"], r["size"], r["sha"]
+        path, sha = r["path"], r["sha"]
+        m_ = r.get("meta") or {}
+        size = m_.get("blob_size", r["size"])  # large files are stored as pointers; count their real size
         n_files += 1
         cat_h.update(f"{path}\0{sha}\n".encode())
         p = path.split("/")

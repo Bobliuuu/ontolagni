@@ -1,6 +1,6 @@
 [project]
 name = "ontolagni"
-version = "0.1.0"
+version = "0.2.0"
 description = "Siloed ontology/index: what data exists where (pointers into traceDB). Stdlib only."
 requires-python = ">=3.10"
 dependencies = []

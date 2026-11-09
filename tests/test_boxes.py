@@ -34,3 +34,9 @@ def test_boxes_and_render(tmp_path):
     render(nodes, meta, str(tmp_path / "r"), "s3://x")
     assert "tenpct-g1" in (tmp_path / "r" / "ONTOLOGY.md").read_text()
     assert "boxes" in json.load(open(tmp_path / "r" / "agent_index.json"))
+
+
+def test_blob_pointer_counts_real_size():
+    cat = [json.dumps({"path": "repos/a/model.bin", "sha": "x", "size": 120, "meta": {"blob": "x", "blob_size": 5000000000}})]
+    nodes, _ = build(cat)
+    assert next(n for n in nodes if n["id"] == "repos/a")["bytes"] == 5000000000
