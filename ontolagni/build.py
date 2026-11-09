@@ -11,11 +11,11 @@ CAMPAIGN_RE = re.compile(
     r"^(?P<topic>[a-z0-9.\-]+?)(?:-(?P<chip>b300|h100|a100|g7e|a10g|tiramisu|a100))?-(?P<date>\d{8})(?:T(?P<time>\d{4})Z)?(?:-(?P<suffix>[a-z]|team|block2))?$")
 MODELS = ["glm-5.3-flash", "kimi-k3", "gemma-4-31b", "qwen3.8-27b", "qwen3.5", "qwen", "gemma", "glm", "kimi", "deepseek"]
 CHIPS = ["b300", "h100", "a100", "g7e", "a10g", "tiramisu", "l4", "g5", "g6"]
-ROOT_KIND = {"logs": "logs", "research": "research", "experiments": "experiment", "data": "dataset",
+ROOT_KIND = {"config": "config", "repos": "repo", "traces": "trace", "index": "index", "boxes": "box", "logs": "logs", "research": "research", "experiments": "experiment", "data": "dataset",
              "docs": "docs", "reports": "report", "bugs": "bug", "evals": "eval", "traces": "trace", "rsi": "rsi-store"}
 FMT = {".jsonl": "jsonl", ".json": "json", ".md": "md", ".log": "log", ".csv": "csv", ".tsv": "tsv",
        ".gz": "gz", ".txt": "txt", ".py": "py", ".sh": "sh", ".sqlite": "sqlite", ".so": "bin"}
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def fmt(path: str) -> str:
@@ -38,6 +38,10 @@ def derive_tags(group: str) -> dict:
         if m["chip"]:
             t["chip"] = m["chip"]
         t["date"] = m["date"]
+    if parts[0] == "repos" and len(parts) > 1:
+        t["project"] = parts[1]
+    if parts[0] == "traces" and len(parts) > 1:
+        t["source"] = parts[1]
     low = group.lower()
     for mo in MODELS:
         if mo in low:
@@ -56,7 +60,8 @@ def group_key(path: str, depth: int) -> str:
     return "/".join(p[:depth]) if len(p) > depth else None
 
 
-def build(catalog_lines, max_depth: int = 4, store_label: str = "") -> tuple[list[dict], dict]:
+def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: dict | None = None,
+          extra_nodes: list | None = None) -> tuple[list[dict], dict]:
     """Nodes at depth 1 (root), 2 (campaign/dataset) and 3 (sub-group). Files shallower than a depth belong to their parent only."""
     acc: dict[str, dict] = {}
     cat_h = hashlib.sha256()
@@ -104,10 +109,20 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "") -> tuple[lis
             node["keys"] = [k for k, _ in a["keys"].most_common(24)]
         if a["ts"]:
             node["ts_min"], node["ts_max"] = min(a["ts"]), max(a["ts"])
-        node["text"] = " ".join(filter(None, [g.replace("/", " ").replace("-", " ").replace("_", " "),
+        if describe and g in describe:
+            node["summary"] = describe[g]["summary"][:600]
+            if describe[g].get("readme"):
+                node["readme"] = describe[g]["readme"]
+        node["text"] = " ".join(filter(None, [node.get("summary", ""), tags.get("project", ""), tags.get("source", ""), g.replace("/", " ").replace("-", " ").replace("_", " "),
                                              tags.get("model", ""), tags.get("chip", ""), tags.get("kind", ""),
                                              tags.get("date", ""), " ".join(a["fmts"]), " ".join(node.get("keys", []))]))
         nodes.append(node)
+    for en in extra_nodes or []:  # synthetic annotation nodes (boxes ...): derived elsewhere, no digest, skipped by verify
+        en = {"files": 0, "bytes": 0, "formats": {}, "depth": en["id"].count("/") + 1, **en, "synthetic": True}
+        if en["depth"] > 1:
+            en["parent"] = "/".join(en["id"].split("/")[:-1])
+        nodes.append(en)
+    nodes.sort(key=lambda n: n["id"])
     meta = {"schema": SCHEMA_VERSION, "files": n_files, "nodes": len(nodes), "catalog_digest": cat_h.hexdigest(),
             "store": store_label}
     return nodes, meta

@@ -89,6 +89,13 @@ class Onto:
                 if n.get(f_):
                     add(str(n[f_]), W_TAG)
             add(" ".join(n.get("keys", [])), W_KEY)
+            for f_ in ("project", "source"):
+                if n.get(f_):
+                    add(str(n[f_]), W_TAG)
+            if n.get("summary"):
+                add(n["summary"], W_KEY)
+            if n.get("synthetic"):
+                add(" ".join(str(n.get(f_, "")) for f_ in ("alias", "provider", "purpose", "host_kind")), W_TAG)
             for f_ in n.get("formats", {}):
                 add(f_, W_FMT)
             self._idt[i] = idt
@@ -241,10 +248,15 @@ class Onto:
     def card(self, n, score=None):
         c = {"id": n["id"], "kind": n.get("kind"), "files": n["files"], "bytes": n["bytes"],
              "formats": n["formats"]}
-        for k in ("model", "chip", "date", "topic", "ts_min", "ts_max"):
+        for k in ("model", "chip", "date", "topic", "ts_min", "ts_max", "project", "source", "summary", "readme",
+                  "alias", "provider", "ssh", "user", "key", "proxy", "host_kind", "purpose", "status", "docs", "hostname"):
             if k in n: c[k] = n[k]
         if score is not None: c["score"] = round(score, 3)
         # exact next step for the agent: always plan first, never pull blindly
+        if n.get("synthetic"):
+            c["next"] = {"docs": [f"tracedb get {d} --head 4096" for d in n.get("docs", [])[:5]],
+                         "search": f"tracedb search {n.get('alias', n['id'])} --limit 10"}
+            return c
         c["next"] = {"list": f"tracedb ls {n['id']}/ --limit 50", "summary": f"tracedb summary {n['id']} --depth 1",
                      "est_raw_bytes": n["bytes"]}
         return c
@@ -262,6 +274,6 @@ def verify(onto: "Onto", catalog_lines) -> dict:
             missing.append(i)
         elif (o["digest"], o["files"], o["bytes"]) != (n["digest"], n["files"], n["bytes"]):
             bad.append(i)
-    extra = [i for i in onto.nodes if i not in want]
+    extra = [i for i in onto.nodes if i not in want and not onto.nodes[i].get("synthetic")]
     return {"ok": not (bad or missing or extra), "bad": bad[:20], "missing": missing[:20], "extra": extra[:20],
             "catalog_digest_match": meta["catalog_digest"] == onto.meta["catalog_digest"]}
