@@ -16,6 +16,7 @@ def main(argv=None):
     p.add_argument("--docs", action="append", default=[], help="LOCALDIR=STOREPREFIX docs scanned for box mentions")
     p.add_argument("--max-depth", type=int, default=4)
     p = sp.add_parser("render"); p.add_argument("--out", required=True)
+    p = sp.add_parser("wiki"); p.add_argument("--out", required=True)
     p = sp.add_parser("find"); p.add_argument("text", nargs="*")
     for k in ("kind", "model", "chip", "campaign"): p.add_argument(f"--{k}")
     p.add_argument("--depth", type=int); p.add_argument("--limit", type=int, default=10)
@@ -47,6 +48,9 @@ def main(argv=None):
     if a.cmd == "render":
         o = Onto(a.dir); render(list(o.nodes.values()), o.meta, a.out, o.meta.get("store", "")); print("rendered", a.out); return 0
     o = Onto(a.dir)
+    if a.cmd == "wiki":
+        from .wiki import build_wiki
+        print("wiki", a.out, build_wiki(list(o.nodes.values()), o.meta, a.out, o.meta.get("store", ""))); return 0
     if a.cmd == "find":
         r = o.find(" ".join(a.text), a.kind, a.model, a.chip, a.campaign, a.depth, a.limit)
     elif a.cmd == "where":
