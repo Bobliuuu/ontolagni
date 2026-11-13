@@ -36,7 +36,8 @@ PAGE = r"""<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport 
 <title>Ontolagni wiki</title>
 <style>
 :root{--bg:#fff;--fg:#1b1f24;--mut:#6a737d;--line:#d8dee4;--acc:#0b5fff;--card:#f6f8fa}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1318;--fg:#e6e9ee;--mut:#8b95a1;--line:#2a313a;--acc:#6ea0ff;--card:#171c23}}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1318;--fg:#e6e9ee;--mut:#8b95a1;--line:#2a313a;--acc:#6ea0ff;--card:#171c23;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0f1318;--fg:#e6e9ee;--mut:#8b95a1;--line:#2a313a;--acc:#6ea0ff;--card:#171c23;color-scheme:dark}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif;display:flex;height:100vh}
 #side{width:340px;min-width:260px;border-right:1px solid var(--line);display:flex;flex-direction:column}
 #side header{padding:12px;border-bottom:1px solid var(--line)}#q{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
