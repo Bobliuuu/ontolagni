@@ -3,7 +3,7 @@ from .build import build, write
 from .render import render
 from .query import Onto, verify
 
-DEF = os.environ.get("ONTOLAGNI_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ontology")
+DEF = os.environ.get("ONTOLAGNI_DIR") or os.environ.get("ONTOLOGY_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ontology")
 
 
 def main(argv=None):
@@ -26,10 +26,11 @@ def main(argv=None):
     p = sp.add_parser("where"); p.add_argument("path")
     p = sp.add_parser("show"); p.add_argument("id")
     p = sp.add_parser("verify"); p.add_argument("catalog")
-    p = sp.add_parser("publish", help="publish --dir to DEST (s3://bucket/ontology/ or a dir): compare-and-swap, keeps every overlay")
-    p.add_argument("--to", required=True)
+    p = sp.add_parser("publish", help="publish --dir to every DEST (first = canonical; default $ONTOLOGY_DESTS): compare-and-swap, keeps every overlay")
+    p.add_argument("--to", action="append", help="destination (repeatable, or space-separated)")
     p = sp.add_parser("overlay", help="merge NODES.jsonl into the published ontology at DEST as overlay NAME (concurrency-safe)")
-    p.add_argument("nodes"); p.add_argument("--name", required=True); p.add_argument("--to", required=True)
+    p.add_argument("nodes"); p.add_argument("--name", required=True)
+    p.add_argument("--to", action="append", help="destination (repeatable, or space-separated; default $ONTOLOGY_DESTS)")
     p.add_argument("--pull", action="store_true", help="afterwards copy the result into --dir")
     a = ap.parse_args(argv)
     if a.cmd == "build":
@@ -70,14 +71,14 @@ def main(argv=None):
         write(nodes, meta, a.dir)
         print(json.dumps(meta)); return 0
     if a.cmd == "overlay":
-        from .publish import publish, read_jsonl, pull
+        from .publish import publish_all, read_jsonl, pull, dests_from
         ons = read_jsonl(sys.stdin.buffer.read() if a.nodes == "-" else open(a.nodes, "rb").read())
-        r = publish(a.to, overlay=(a.name, ons)); print(json.dumps(r))
-        if a.pull: pull(a.to, a.dir)
+        ds = dests_from(a.to); r = publish_all(ds, overlay=(a.name, ons)); print(json.dumps(r))
+        if a.pull: pull(ds[0], a.dir)
         return 0
     if a.cmd == "publish":
-        from .publish import publish
-        o = Onto(a.dir); r = publish(a.to, nodes=list(o.nodes.values()), meta=o.meta); print(json.dumps(r)); return 0
+        from .publish import publish_all, dests_from
+        o = Onto(a.dir); r = publish_all(dests_from(a.to), nodes=list(o.nodes.values()), meta=o.meta); print(json.dumps(r)); return 0
     if a.cmd == "render":
         o = Onto(a.dir); render(list(o.nodes.values()), o.meta, a.out, o.meta.get("store", "")); print("rendered", a.out); return 0
     o = Onto(a.dir)

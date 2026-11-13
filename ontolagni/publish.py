@@ -177,6 +177,38 @@ def _render_and_put(t, nodes, meta):
                 t.put(rel, open(p, "rb").read())
 
 
+def publish_all(dests: list[str], nodes=None, meta=None, overlay=None, render_docs=True) -> dict:
+    """Publish to several destinations (dests[0] is canonical, the rest are mirrors), each with its own compare-and-swap.
+    Pass 1: canonical, then every mirror starting from canonical's merged result (a mirror's own extra nodes and overlays
+    survive). Pass 2: canonical again from the last mirror's result, so nodes that existed only on a mirror reach
+    canonical; mirrors are redone only if that changed anything. Without concurrent writers all copies end identical."""
+    if not dests:
+        raise ValueError("no destination (--to or $ONTOLOGY_DESTS)")
+    res = {}
+    def once(d, ns, m, ov):
+        r = publish(d, nodes=ns, meta=m, overlay=ov, render_docs=render_docs)
+        cur = read_jsonl(target(d).get("ontology.jsonl")[0]); cm = json.loads(target(d).get("meta.json")[0] or b"{}")
+        res[d] = r["nodes"]
+        return cur, cm
+    cur, cm = once(dests[0], nodes, meta, overlay)
+    for d in dests[1:]:
+        cur, cm = once(d, cur, cm, overlay)
+    if len(dests) > 1:
+        before = res[dests[0]]
+        cur, cm = once(dests[0], cur, cm, None)
+        if res[dests[0]] != before:
+            for d in dests[1:]:
+                once(d, cur, cm, None)
+    return {"ok": True, "nodes": res, "canonical": dests[0]}
+
+
+def dests_from(args_to) -> list[str]:
+    out = []
+    for x in args_to or []:
+        out += x.split()
+    return out or os.environ.get("ONTOLOGY_DESTS", "").split()
+
+
 def pull(dest: str, out_dir: str):
     """Copy the published ontology.jsonl + meta.json into a local ontology dir (for queries)."""
     t = target(dest)

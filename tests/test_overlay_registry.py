@@ -52,3 +52,14 @@ def test_policy_banner(tmp_path):
     render(nodes, meta, str(tmp_path))
     a = open(tmp_path / "AGENT.md").read()
     assert a.index("policy/cost-first") < a.index("1. `ontolagni find")
+
+
+def test_publish_all_converges_canonical_and_mirror(tmp_path):
+    from ontolagni.publish import publish_all
+    a, b = str(tmp_path / "a"), str(tmp_path / "b")
+    nodes, meta = build(CAT)
+    publish(b, nodes=nodes, meta=meta, overlay=("mirror-only", [{"id": "rsi/m", "summary": "only on the mirror"}]), render_docs=False)
+    r = publish_all([a, b], nodes=nodes, meta=meta, overlay=("pol", [{"id": "policy/x", "summary": "p"}]), render_docs=False)
+    ia = {n["id"] for n in read_jsonl(open(os.path.join(a, "ontology.jsonl"), "rb").read())}
+    ib = {n["id"] for n in read_jsonl(open(os.path.join(b, "ontology.jsonl"), "rb").read())}
+    assert ia == ib and {"rsi/m", "policy/x"} <= ia and r["nodes"][a] == r["nodes"][b]
