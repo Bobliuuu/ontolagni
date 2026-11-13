@@ -1,0 +1,253 @@
+# Spec for ~/video-readme-maker:  python3 eval/demo_bench.py && python3 ~/video-readme-maker/vrm.py all README.spec.yml
+# Numbers come from eval/results/demo.json (a deterministic SYNTHETIC catalog; there is no real-store benchmark in this repo).
+project:
+  name: ontolagni
+  emoji: "🧭"
+  tagline: "Middleware ontology: what data exists where. JSON for agents, pointers into traceDB"
+  repo: Bobliuuu/ontolagni
+hero:
+  title: ontolagni
+  subtitle: "ask in plain words, get the node, the cost and the next command"
+  chips: [stdlib only, siloed, verifiable digests, agent-first JSON]
+theme: {accent: "#a78bfa", accent2: "#ff6b6b", accent3: "#f2c14e", good: "#3ddc97"}
+readme_out: README.md
+assets_dir: assets
+badges:
+  - {label: python, message: "3.10+", color: 3776ab, logo: python}
+  - {label: dependencies, message: "none (stdlib only)", color: 3ddc97}
+  - {label: output, message: "JSON for agents", color: a78bfa}
+  - {label: verify, message: "digest per subtree", color: f2c14e}
+  - {label: release, message: v0.2.1, color: a78bfa, logo: github, link: "https://github.com/Bobliuuu/ontolagni/releases/tag/v0.2.1"}
+  - {label: pairs with, message: traceDB, color: 27c8e8, link: "https://github.com/Bobliuuu/traceDB"}
+nav:
+  - {emoji: "🎬", label: Video, anchor: video}
+  - {emoji: "🚀", label: Quick use, anchor: quick-use}
+  - {emoji: "📊", label: Demo numbers, anchor: demo-numbers}
+  - {emoji: "🧩", label: How it works, anchor: how-it-works}
+  - {emoji: "⌨️", label: Commands, anchor: commands}
+  - {emoji: "⚠️", label: Caveats, anchor: caveats}
+  - {emoji: "🗺️", label: Repo map, anchor: repo-map}
+
+numbers:
+  files: {file: eval/results/demo.json, path: files, fmt: "{:,.0f}"}
+  nodes: {file: eval/results/demo.json, path: nodes}
+  campaigns: {file: eval/results/demo.json, path: campaigns}
+  cat_mb: {file: eval/results/demo.json, path: size_rows.what=catalog listing.mb, unit: " MB", fmt: "{:.1f}"}
+  onto_mb: {file: eval/results/demo.json, path: size_rows.what=ontology.mb, unit: " MB", fmt: "{:.2f}"}
+  shrink: {file: eval/results/demo.json, path: shrink, unit: "x", fmt: "{:.0f}"}
+  build_s: {file: eval/results/demo.json, path: build_s, unit: " s", fmt: "{:.1f}"}
+  load_ms: {file: eval/results/demo.json, path: load_ms, unit: " ms", fmt: "{:.0f}"}
+  p50: {file: eval/results/demo.json, path: find_p50_ms, unit: " ms", fmt: "{:.2f}"}
+  pmax: {file: eval/results/demo.json, path: find_max_ms, unit: " ms", fmt: "{:.2f}"}
+  queries: {file: eval/results/demo.json, path: queries}
+  hit1: {file: eval/results/demo.json, path: hit_at_1, fmt: "{:.0%}"}
+  flagged: {file: eval/results/demo.json, path: verify_tampered_flagged}
+  chain: {file: eval/results/demo.json, path: where_chain}
+
+intro: |
+  <a id="video"></a>
+  **ontolagni** answers one question for an agent: **what data exists where?** It turns a catalog listing (`{path, sha, size, meta}` per file, as produced by
+  `tracedb export-catalog`) into a small ontology of nodes: roots, campaigns and sub-groups, each with file and byte counts, formats, tags derived from the
+  names (model, chip, date, project) and a **content digest of its whole subtree**. Output is JSON for agents, not prose for humans.
+  It is siloed: standard library only, nothing imported from traceDB; the only contract is the catalog file format.
+
+video:
+  url: ""
+  caption: "Explainer video (with voice-over and subtitles): the problem, the idea, and a reproducible demo benchmark"
+  mp4: video/ontolagni_explainer.mp4
+  gif: video/preview.gif
+  srt: video/ontolagni_explainer.srt
+  poster: video/poster.png
+  out_dir: video/.render
+  fps: 24
+  max_mb: 22
+  render_crf: 18
+  concurrency: 4
+  music: true
+  voice: {engine: openai, voice: alloy, model: gpt-4o-mini-tts, tempo: 1.15}
+  scenes:
+    - type: title
+      title: ontolagni
+      subtitle: What data exists where, for agents
+      chips: [catalog in, ontology out, verifiable]
+      say: "ontolagni: a middleware ontology that tells an agent what data exists where. This is a short tour of the idea, how to use it, and what a reproducible demo measures. It also says plainly what is not measured here."
+    - type: problem
+      heading: The problem
+      bullets:
+        - "A store can hold hundreds of thousands of files across many projects"
+        - "An agent that guesses paths, or lists everything, wastes time and context"
+        - "A hand-written index drifts away from the store"
+      say: "Imagine a store with hundreds of thousands of files from many projects and experiments. An agent that guesses paths, or lists everything, wastes time and context. And an index someone wrote by hand slowly drifts away from what is really there."
+    - type: architecture
+      diagram: flow
+      heading: "The idea: derive, do not invent"
+      say: "The idea is to derive the ontology from the catalog listing and nothing else. Each file path contributes to its ancestor groups. Each group becomes a node with file and byte counts, formats, tags parsed from its name such as model, chip and date, and a digest over everything beneath it. Anything that cannot be derived is simply left out."
+    - type: terminal
+      heading: "Using it"
+      lines:
+        - {cmd: "tracedb export-catalog --out cat.jsonl && ontolagni build cat.jsonl"}
+        - {out: "ontology written: nodes, files, catalog digest"}
+        - {cmd: "ontolagni find qwen g7e vllm"}
+        - {out: "ranked nodes, each with counts and the next tracedb command"}
+        - {cmd: "ontolagni where logs/x/y/z.log"}
+        - {out: "owner chain, root to campaign"}
+        - {cmd: "ontolagni verify cat.jsonl"}
+        - {out: "exit 2 if anything drifted"}
+      say: "Using it takes four commands. Build from a catalog. Find nodes by plain words, and each result carries its counts and the next traceDB command to run. Where gives the owner chain of a path. And verify rebuilds from the catalog and exits with code two if anything drifted."
+    - type: cards
+      heading: "Safe for agents"
+      cards:
+        - {title: "Siloed", sub: "stdlib only", lines: ["Imports nothing from traceDB", "The catalog file is the whole contract"]}
+        - {title: "Cost first", sub: "never pull blind", lines: ["Every card carries size and a plan command", "find, then tracedb plan, then a budgeted get"]}
+        - {title: "Verifiable", sub: "digest per subtree", lines: ["verify rebuilds and compares every node", "Drift is reported by node id"]}
+      footer: "Agents: ontolagni find, then tracedb plan, ls or get --head. Never pull blind."
+      say: "It is built for agents. It is siloed, with standard library only. Every result carries its cost, so the next step is a traceDB plan, then a budgeted read. And every node has a digest, so drift is detected rather than trusted."
+    - type: stat
+      number: files
+      kicker: "demo catalog: {{ n.campaigns.text }} campaigns"
+      label: files become {{ n.nodes.text }} nodes
+      sub: "synthetic, deterministic, generated by eval/demo_bench.py"
+      say: "To measure the mechanics, the repo includes a deterministic demo that generates a synthetic catalog of {{ n.files.numtext }} files in {{ n.campaigns.numtext }} campaigns. It becomes {{ n.nodes.numtext }} nodes."
+    - type: chart
+      chart: sizes
+      gif: video/sizes.gif
+      gif_start: 0.4
+      gif_end: 7
+      gif_width: 900
+      gif_fps: 10
+      say: "The catalog listing is {{ n.cat_mb.numtext }} megabytes. The ontology is {{ n.onto_mb.numtext }}, about {{ n.shrink.numtext }} times smaller, small enough to load in {{ n.load_ms.numtext }} milliseconds. Building it from the catalog takes {{ n.build_s.numtext }} seconds."
+    - type: results
+      heading: "Query and verify on the demo"
+      items:
+        - {label: "find, median latency", number: p50}
+        - {label: "find, worst of {{ n.queries.text }} queries", number: pmax}
+        - {label: "owner chain length from where", number: chain}
+        - {label: "nodes flagged after changing one file's hash", number: flagged}
+      say: "A find query takes a median of {{ n.p50.numtext }} milliseconds, and at worst {{ n.pmax.numtext }}. When we change the hash of a single file in the catalog, verify flags exactly the {{ n.flagged.numtext }} nodes on that file's path, from its root down to its group."
+    - type: caveats
+      heading: "Honest caveats"
+      bullets:
+        - "The demo catalog is synthetic; it measures mechanics, not ranking quality on a real store"
+        - "The easy query set scores {{ n.hit1.text }} top one by construction, a sanity check only"
+        - "The real catalog evaluation inputs are not in this repo"
+        - "The ontology is only as good as the paths and names in the catalog"
+      say: "Honest caveats. The demo catalog is synthetic, so it measures mechanics, not ranking quality on a real store. The {{ n.hit1.text }} top one hit rate is by construction, and is only a sanity check. The real catalog evaluation inputs are not part of this repository, so we make no ranking claims about it."
+    - type: end
+      title: ontolagni
+      subtitle: "Find with ontolagni, fetch with traceDB"
+      say: "ontolagni. Find with ontolagni, fetch with traceDB. The code and the demo benchmark are in the repo."
+
+tables:
+  - id: demo_tbl
+    title: "Demo benchmark on a synthetic catalog (eval/demo_bench.py)"
+    file: eval/results/demo.json
+    rows_path: size_rows
+    columns:
+      - {key: what, title: Artifact}
+      - {key: mb, title: Size, align: right, fmt: "{:.2f}", unit: " MB"}
+  - id: cmd_tbl
+    title: "Commands"
+    columns:
+      - {key: cmd, title: Command}
+      - {key: does, title: What it does}
+    rows:
+      - ["`ontolagni build <catalog.jsonl>`", "derive the ontology (nodes, digests, tags); `--ssh-config` adds box-access nodes"]
+      - ["`ontolagni find <words>`", "ranked nodes with counts and the next tracedb command; filters `--kind --model --chip --campaign --depth`"]
+      - ["`ontolagni where <path>`", "owner chain of a path"]
+      - ["`ontolagni show <id>`", "one node card"]
+      - ["`ontolagni verify <catalog.jsonl>`", "rebuild and compare every digest; exit 2 on drift"]
+      - ["`ontolagni render` / `wiki --out DIR`", "human ONTOLOGY.md, agent AGENT.md + agent_index.json, or a static HTML wiki (IP-like strings masked)"]
+
+charts:
+  - id: sizes
+    type: bar
+    title: "Catalog listing versus ontology (MB, lower is better)"
+    subtitle: "synthetic catalog, 60,000 files"
+    better: lower
+    file: eval/results/demo.json
+    rows_path: size_rows
+    label: what
+    y: mb
+    unit: " MB"
+    fmt: "{:.2f}"
+    highlight: "ontology"
+
+diagrams:
+  - id: flow
+    title: "From catalog to answer"
+    nodes:
+      - {id: store, label: "store catalog", sub: "tracedb export-catalog: path, sha, size, meta", col: 0, row: 0, kind: store}
+      - {id: build, label: "ontolagni build", sub: "group by path prefix, derive tags, digest per subtree", col: 1, row: 0, kind: accent}
+      - {id: onto, label: "ontology.jsonl", sub: "one small file, loaded in memory", col: 2, row: 0, kind: store}
+      - {id: find, label: "find / where / show", sub: "ranked cards with counts and next command", col: 3, row: 0}
+      - {id: agent, label: "agent", sub: "then tracedb plan, ls, get --head", col: 3, row: 1, kind: io}
+      - {id: verify, label: "verify", sub: "rebuild from catalog, compare digests", col: 1, row: 1}
+    edges:
+      - {from: store, to: build}
+      - {from: build, to: onto}
+      - {from: onto, to: find}
+      - {from: find, to: agent}
+      - {from: store, to: verify, label: "same catalog"}
+      - {from: verify, to: onto, label: "compares"}
+
+sections:
+  - title: Quick use
+    emoji: "🚀"
+    id: quick-use
+    body: |
+      ```bash
+      tracedb export-catalog --out cat.jsonl && ontolagni build cat.jsonl
+      ontolagni find qwen g7e vllm            # ranked nodes, each with file/byte counts and the next tracedb command
+      ontolagni where logs/x/y/z.log          # owner chain
+      ontolagni verify cat.jsonl              # exit 2 if anything drifted
+      ```
+      Agents: ontolagni (find) → `tracedb plan`/`ls`/`get --head` (budgeted). Never pull blind.
+  - title: Demo numbers
+    emoji: "📊"
+    id: demo-numbers
+    body: "Produced by [`eval/demo_bench.py`](eval/demo_bench.py) into [`eval/results/demo.json`](eval/results/demo.json). The catalog is **synthetic** (generated deterministically by the script), so these numbers show the mechanics of build, find and verify, not ranking quality on a real store."
+    highlights:
+      - {label: "Files in demo catalog", number: files}
+      - {label: "Nodes", number: nodes}
+      - {label: "Ontology vs catalog size", number: shrink}
+      - {label: "find p50", number: p50}
+      - {label: "Build time", number: build_s}
+      - {label: "Load time", number: load_ms}
+    charts: [sizes]
+    images:
+      - {src: video/preview.gif, alt: "animated overview of the explainer video", width: "70%"}
+    tables: [demo_tbl]
+    after: |
+      Changing one file's hash in the catalog makes `verify` flag exactly the {{ n.flagged.text }} nodes on its path (root to group); the unmodified catalog verifies clean.
+  - title: How it works
+    emoji: "🧩"
+    id: how-it-works
+    body: "Nothing is invented: every field is derived from the catalog's paths and meta; absent means omitted. Nodes exist at depth 1 (root), 2 (campaign or dataset) and 3 to 4 (sub-groups, `--max-depth`). Each node carries a digest over its subtree."
+    diagrams: [flow]
+    details:
+      - summary: What a node carries
+        body: "File and byte counts (blob pointers count at their real size), format counts, top JSON keys, first and last modification time, and tags derived from the group name: kind, project or source, model, chip, topic, date. `--describe` merges README-derived summaries verbatim."
+      - summary: Box-access nodes
+        body: "`ontolagni build --ssh-config` turns an ssh config into `boxes/<alias>` nodes (alias, provider hints, docs that mention it). Private keys are never read; only the IdentityFile path is recorded."
+  - title: Commands
+    emoji: "⌨️"
+    id: commands
+    tables: [cmd_tbl]
+quickstart:
+  - title: Reproduce the demo and rebuild this README
+    shell: |
+      python3 eval/demo_bench.py
+      python3 ~/video-readme-maker/vrm.py all README.spec.yml
+caveats:
+  - "The demo benchmark uses a synthetic catalog: it measures build, find and verify mechanics, not ranking quality on a real store."
+  - "The real-catalog ranking evaluation (`eval/rank_metrics.py`) needs inputs that are not in this repository, so no ranking numbers are claimed."
+  - "The ontology is only as informative as the paths, names and meta in the catalog."
+repo_map:
+  - {path: ontolagni/, desc: "library and CLI: build, query (find, where, show, verify), render, wiki, access (box nodes)"}
+  - {path: tests/, desc: "pytest suite for the ontology and box-access nodes"}
+  - {path: eval/demo_bench.py, desc: "deterministic synthetic benchmark; writes eval/results/demo.json"}
+  - {path: eval/rank_metrics.py, desc: "ranking metrics (MRR, hit@k) for a real catalog snapshot"}
+  - {path: README.spec.yml, desc: "drives the README and the video"}
+  - {path: video/, desc: "explainer mp4, poster, preview gif, subtitles", generated: true}
+  - {path: assets/, desc: "generated hero, chart and diagram SVGs", generated: true}
+footer: "Generated with [video-readme-maker](https://github.com/Bobliuuu/video-readme-maker)."

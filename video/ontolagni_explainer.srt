@@ -1,0 +1,152 @@
+1
+00:00:00,400 --> 00:00:04,999
+ontolagni: a middleware ontology that tells an agent what data exists where.
+
+2
+00:00:04,999 --> 00:00:10,264
+This is a short tour of the idea, how to use it, and what a reproducible demo measures.
+
+3
+00:00:10,264 --> 00:00:13,108
+It also says plainly what is not measured here.
+
+4
+00:00:14,110 --> 00:00:19,050
+Imagine a store with hundreds of thousands of files from many projects and experiments.
+
+5
+00:00:19,050 --> 00:00:23,252
+An agent that guesses paths, or lists everything, wastes time and context.
+
+6
+00:00:23,252 --> 00:00:27,795
+And an index someone wrote by hand slowly drifts away from what is really there.
+
+7
+00:00:28,790 --> 00:00:33,678
+The idea is to derive the ontology from the catalog listing and nothing else.
+
+8
+00:00:33,678 --> 00:00:36,853
+Each file path contributes to its ancestor groups.
+
+9
+00:00:36,853 --> 00:00:42,884
+Each group becomes a node with file and byte counts, formats, tags parsed from its name such as
+
+10
+00:00:42,884 --> 00:00:46,820
+model, chip and date, and a digest over everything beneath it.
+
+11
+00:00:46,820 --> 00:00:50,058
+Anything that cannot be derived is simply left out.
+
+12
+00:00:51,060 --> 00:00:52,794
+Using it takes four commands.
+
+13
+00:00:52,794 --> 00:00:54,049
+Build from a catalog.
+
+14
+00:00:54,049 --> 00:00:59,609
+Find nodes by plain words, and each result carries its counts and the next traceDB command to
+
+15
+00:00:59,609 --> 00:00:59,848
+run.
+
+16
+00:00:59,848 --> 00:01:02,120
+Where gives the owner chain of a path.
+
+17
+00:01:02,120 --> 00:01:06,962
+And verify rebuilds from the catalog and exits with code two if anything drifted.
+
+18
+00:01:07,960 --> 00:01:09,537
+It is built for agents.
+
+19
+00:01:09,537 --> 00:01:12,348
+It is siloed, with standard library only.
+
+20
+00:01:12,348 --> 00:01:18,382
+Every result carries its cost, so the next step is a traceDB plan, then a budgeted read.
+
+21
+00:01:18,382 --> 00:01:23,182
+And every node has a digest, so drift is detected rather than trusted.
+
+22
+00:01:24,180 --> 00:01:30,474
+To measure the mechanics, the repo includes a deterministic demo that generates a synthetic
+
+23
+00:01:30,474 --> 00:01:33,241
+catalog of 60,000 files in 50 campaigns.
+
+24
+00:01:33,241 --> 00:01:34,694
+It becomes 903 nodes.
+
+25
+00:01:35,690 --> 00:01:38,429
+The catalog listing is 10.9 megabytes.
+
+26
+00:01:38,429 --> 00:01:44,627
+The ontology is 0.45, about 25 times smaller, small enough to load in 10 milliseconds.
+
+27
+00:01:44,627 --> 00:01:48,014
+Building it from the catalog takes 0.4 seconds.
+
+28
+00:01:49,010 --> 00:01:53,230
+A find query takes a median of 0.33 milliseconds, and at worst 0.35.
+
+29
+00:01:53,230 --> 00:01:58,940
+When we change the hash of a single file in the catalog, verify flags exactly the 4 nodes on
+
+30
+00:01:58,940 --> 00:02:02,043
+that file's path, from its root down to its group.
+
+31
+00:02:03,040 --> 00:02:04,012
+Honest caveats.
+
+32
+00:02:04,012 --> 00:02:10,041
+The demo catalog is synthetic, so it measures mechanics, not ranking quality on a real store.
+
+33
+00:02:10,041 --> 00:02:14,774
+The 100% top one hit rate is by construction, and is only a sanity check.
+
+34
+00:02:14,774 --> 00:02:20,544
+The real catalog evaluation inputs are not part of this repository, so we make no ranking
+
+35
+00:02:20,544 --> 00:02:21,581
+claims about it.
+
+36
+00:02:22,580 --> 00:02:23,333
+ontolagni.
+
+37
+00:02:23,333 --> 00:02:26,347
+Find with ontolagni, fetch with traceDB.
+
+38
+00:02:26,347 --> 00:02:29,963
+The code and the demo benchmark are in the repo.
+

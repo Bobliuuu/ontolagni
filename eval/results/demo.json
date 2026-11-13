@@ -1,0 +1,30 @@
+{
+ "synthetic": true,
+ "files": 60000,
+ "nodes": 903,
+ "campaigns": 50,
+ "catalog_bytes": 10937650,
+ "ontology_bytes": 445476,
+ "shrink": 24.6,
+ "build_s": 0.445,
+ "load_ms": 9.5,
+ "queries": 50,
+ "hit_at_1": 1.0,
+ "hit_at_3": 1.0,
+ "find_p50_ms": 0.33,
+ "find_max_ms": 0.35,
+ "verify_clean_ok": true,
+ "verify_tampered_ok": false,
+ "verify_tampered_flagged": 4,
+ "where_chain": 4,
+ "size_rows": [
+  {
+   "what": "catalog listing",
+   "mb": 10.94
+  },
+  {
+   "what": "ontology",
+   "mb": 0.45
+  }
+ ]
+}
