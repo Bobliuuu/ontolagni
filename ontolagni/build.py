@@ -8,9 +8,9 @@ import hashlib, json, re, sys
 from collections import Counter, defaultdict
 
 CAMPAIGN_RE = re.compile(
-    r"^(?P<topic>[a-z0-9.\-]+?)(?:-(?P<chip>b300|h100|a100|g7e|a10g|tiramisu|a100))?-(?P<date>\d{8})(?:T(?P<time>\d{4})Z)?(?:-(?P<suffix>[a-z]|team|block2))?$")
-MODELS = ["glm-5.3-flash", "kimi-k3", "gemma-4-31b", "qwen3.8-27b", "qwen3.5", "qwen", "gemma", "glm", "kimi", "deepseek"]
-CHIPS = ["b300", "h100", "a100", "g7e", "a10g", "tiramisu", "l4", "g5", "g6"]
+    r"^(?P<topic>[a-z0-9.\-]+?)(?:-(?P<chip>b300|b200|h100|a100|g7e|a10g|tiramisu|gb10|mi300x|mi325x|mi355x|rtxpro6000))?-(?P<date>\d{8})(?:T(?P<time>\d{4})Z)?(?:-(?P<suffix>[a-z]|team|block2))?$")
+MODELS = ["gpt-oss-120b", "gpt-oss-20b", "gpt-oss", "nemotron", "glm-5.3-flash", "kimi-k3", "gemma-4-31b", "qwen3.8-27b", "qwen3.5", "qwen", "gemma", "glm", "kimi", "deepseek"]
+CHIPS = ["mi300x", "mi325x", "mi355x", "rtxpro6000", "rtx-pro-6000", "b200", "gb10", "b300", "h100", "a100", "g7e", "a10g", "tiramisu", "l4", "g5", "g6"]
 ROOT_KIND = {"config": "config", "repos": "repo", "traces": "trace", "index": "index", "boxes": "box", "logs": "logs", "research": "research", "experiments": "experiment", "data": "dataset",
              "docs": "docs", "reports": "report", "bugs": "bug", "evals": "eval", "traces": "trace"}
 FMT = {".jsonl": "jsonl", ".json": "json", ".md": "md", ".log": "log", ".csv": "csv", ".tsv": "tsv",
