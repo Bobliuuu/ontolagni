@@ -81,7 +81,7 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
             a = acc.get(g)
             if a is None:
                 a = acc[g] = {"files": 0, "bytes": 0, "fmts": Counter(), "keys": Counter(), "h": hashlib.sha256(),
-                              "children": set(), "ts": []}
+                              "children": set(), "ts": [], "mt0": None, "mt1": None, "wk": Counter()}
             a["files"] += 1
             a["bytes"] += size
             a["fmts"][fmt(path)] += 1
@@ -90,6 +90,12 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
                 a["children"].add("/".join(p[:d + 1]))
             for k in (r.get("meta") or {}).get("keys", []) or []:
                 a["keys"][k] += 1
+            mt = m_.get("mtime")
+            if isinstance(mt, (int, float)) and mt > 0:
+                a["mt0"] = mt if a["mt0"] is None else min(a["mt0"], mt)
+                a["mt1"] = mt if a["mt1"] is None else max(a["mt1"], mt)
+                if d == 2:
+                    a["wk"][int(mt // 604800)] += 1
             ts = (r.get("meta") or {}).get("ts")
             if ts:
                 a["ts"].append(ts)
@@ -109,12 +115,19 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
             node["children"] = sorted(a["children"])
         if a["keys"]:
             node["keys"] = [k for k, _ in a["keys"].most_common(24)]
+        if a["mt1"] is not None:  # file mtimes (epoch s): when the subtree was first/last touched; weekly = files touched per week (depth 2)
+            node["mtime_min"], node["mtime_max"] = int(a["mt0"]), int(a["mt1"])
+            if a["wk"]:
+                node["weekly"] = {str(k * 604800): v for k, v in sorted(a["wk"].items())[-12:]}
         if a["ts"]:
             node["ts_min"], node["ts_max"] = min(a["ts"]), max(a["ts"])
         if describe and g in describe:
             node["summary"] = describe[g]["summary"][:600]
             if describe[g].get("readme"):
                 node["readme"] = describe[g]["readme"]
+            for k in ("status", "metrics"):  # README-derived progress lines / numbers; verbatim, never invented
+                if describe[g].get(k):
+                    node[k] = describe[g][k][:8]
         node["text"] = " ".join(filter(None, [node.get("summary", ""), tags.get("project", ""), tags.get("source", ""), g.replace("/", " ").replace("-", " ").replace("_", " "),
                                              tags.get("model", ""), tags.get("chip", ""), tags.get("kind", ""),
                                              tags.get("date", ""), " ".join(a["fmts"]), " ".join(node.get("keys", []))]))

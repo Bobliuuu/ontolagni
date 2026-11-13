@@ -5,7 +5,7 @@ import json, os, re
 
 IP = re.compile(r"(?<!\d)\d{1,3}(?:\.\d{1,3}){3}(?!\d)")
 KEEP = ("id", "kind", "parent", "bytes", "files", "depth", "children", "formats", "summary", "readme", "provider", "user", "key",
-        "key_vault", "proxy", "docs", "ssh", "alias")
+        "key_vault", "proxy", "docs", "ssh", "alias", "status", "metrics", "mtime_min", "mtime_max", "weekly")
 
 
 def _mask(v):
@@ -57,6 +57,8 @@ const h=n=>{for(const u of['B','KB','MB','GB','TB']){if(n<1024||u=='TB')return(u
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const kids=n=>(n.children||[]).map(c=>by[c]).filter(Boolean).sort((a,b)=>(b.bytes||0)-(a.bytes||0));
 const roots=N.nodes.filter(n=>n.depth==1).sort((a,b)=>(b.bytes||0)-(a.bytes||0));
+const day=t=>new Date(t*1000).toISOString().slice(0,10),ago=t=>{const d=Math.round((Date.now()/1000-t)/86400);return d<=0?'today':d+' d ago'};
+const spark=wk=>{if(!wk)return'';const v=Object.entries(wk);const m=Math.max(...v.map(x=>x[1]));return '<div title="files touched per week" style="display:flex;align-items:flex-end;gap:2px;height:30px">'+v.map(([k,c])=>`<div style="width:10px;background:var(--acc);height:${Math.max(2,30*c/m)}px" title="${day(+k)}: ${c} files"></div>`).join('')+'</div>'};
 const open=new Set();let sel=null;
 document.getElementById('stat').textContent=N.meta.files.toLocaleString()+' files · '+N.nodes.length+' nodes';
 function row(n,d){const k=kids(n),o=open.has(n.id);let s=`<div class="n${sel==n.id?' sel':''}" style="padding-left:${d*14}px" data-id="${esc(n.id)}"><span class=t data-t=1>${k.length?(o?'▾':'▸'):''}</span>${esc(n.id.split('/').pop()||n.id)}<span class=sz>${n.bytes?h(n.bytes):''}</span></div>`;
@@ -73,6 +75,9 @@ function show(id,push=true){const n=by[id];if(!n)return;sel=id;if(push)location.
  const k=kids(n),mx=Math.max(1,...k.map(c=>c.bytes||0));let s=`<h1>${esc(n.id)}</h1><div class=mut>${esc(n.kind||'')} · ${(n.files||0).toLocaleString()} files · ${h(n.bytes||0)}</div>`;
  const crumbs=[];p=n.parent;while(p&&by[p]){crumbs.unshift(p);p=by[p].parent}if(crumbs.length)s+='<p>'+crumbs.map(c=>`<a data-go="${esc(c)}">${esc(c.split('/').pop())}</a>`).join(' / ')+'</p>';
  if(n.summary)s+=`<p>${esc(n.summary)}</p>`;
+ if(n.mtime_max)s+=`<p class=mut>Active ${day(n.mtime_min)} → ${day(n.mtime_max)} (${ago(n.mtime_max)})</p>`+spark(n.weekly);
+ if(n.status)s+='<h3>Status <span class=mut>(from its README)</span></h3><ul>'+n.status.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
+ if(n.metrics)s+='<h3>Numbers <span class=mut>(from its README)</span></h3><ul>'+n.metrics.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
  if(n.kind=='box'&&n.alias){s+=`<h3>Access</h3><table>${['ssh','user','key','key_vault','proxy','provider'].filter(f=>n[f]).map(f=>`<tr><th>${f}</th><td><code>${esc(n[f])}</code></td></tr>`).join('')}</table>`;
   if(n.docs)s+='<h3>Mentioned in</h3>'+n.docs.map(d=>`<div><code>${esc(d)}</code></div>`).join('')}
  if(n.formats&&Object.keys(n.formats).length)s+='<h3>Formats</h3><p>'+Object.entries(n.formats).sort((a,b)=>b[1]-a[1]).map(([f,c])=>`<code>${esc(f)}</code> ${c.toLocaleString()}`).join(' · ')+'</p>';
@@ -80,7 +85,7 @@ function show(id,push=true){const n=by[id];if(!n)return;sel=id;if(push)location.
  if(n.kind!='box'){s+=`<h3>Fetch</h3><pre>tracedb ls ${esc(n.id)}\ntracedb plan ${esc(n.id)}\ntracedb search "words" --prefix ${esc(n.id)}/${n.readme?`\ntracedb get ${esc(n.readme)} --head 8192`:''}</pre><div class=mut>store: ${esc(N.store)}</div>`}
  document.getElementById('main').innerHTML=s}
 document.getElementById('main').onclick=e=>{const a=e.target.closest('[data-go]');if(a)show(a.dataset.go)};
-function home(){let s=`<h1>What data exists where</h1><div class=mut>${esc(N.store)} · digest ${esc((N.meta.catalog_digest||'').slice(0,12))}</div><table><tr><th>root</th><th>files</th><th>size</th></tr>`+roots.map(r=>`<tr><td><a data-go="${esc(r.id)}">${esc(r.id)}/</a></td><td>${(r.files||0).toLocaleString()}</td><td>${h(r.bytes||0)}</td></tr>`).join('')+'</table><p class=mut>Pick a node on the left or search. Each page shows the exact traceDB commands to fetch it.</p>';
+function home(){let s=`<h1>What data exists where</h1><div class=mut>${esc(N.store)} · digest ${esc((N.meta.catalog_digest||'').slice(0,12))}</div><table><tr><th>root</th><th>files</th><th>size</th></tr>`+roots.map(r=>`<tr><td><a data-go="${esc(r.id)}">${esc(r.id)}/</a></td><td>${(r.files||0).toLocaleString()}</td><td>${h(r.bytes||0)}</td></tr>`).join('')+'</table><h3>Projects, most recently active first</h3><table><tr><th>project</th><th>last active</th><th>size</th><th>what</th></tr>'+N.nodes.filter(n=>n.parent=='repos'&&n.mtime_max).sort((a,b)=>b.mtime_max-a.mtime_max).slice(0,60).map(n=>`<tr><td><a data-go="${esc(n.id)}">${esc(n.id.split('/')[1])}</a></td><td>${day(n.mtime_max)}</td><td>${h(n.bytes||0)}</td><td class=mut>${esc((n.summary||'').slice(0,110))}</td></tr>`).join('')+'</table><p class=mut>Pick a node on the left or search. Each page shows the exact traceDB commands to fetch it.</p>';
  document.getElementById('main').innerHTML=s}
 addEventListener('hashchange',()=>{const id=decodeURIComponent(location.hash.slice(1));id?show(id,false):home()});
 tree();location.hash?show(decodeURIComponent(location.hash.slice(1)),false):home();

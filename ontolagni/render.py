@@ -13,6 +13,11 @@ def _h(n):
         n /= 1024
 
 
+def _d(t):
+    import datetime
+    return datetime.datetime.fromtimestamp(t, datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
 def render(nodes, meta, out_dir, store_label=""):
     os.makedirs(out_dir, exist_ok=True)
     by = {n["id"]: n for n in nodes}
@@ -38,6 +43,11 @@ def render(nodes, meta, out_dir, store_label=""):
             L.append(f"### `{c['id']}/`  ({c['files']:,} files, {_h(c['bytes'])})")
             if c.get("summary"):
                 L += ["", c["summary"]]
+            if c.get("mtime_max"):
+                L += ["", "Active " + _d(c["mtime_min"]) + " -> " + _d(c["mtime_max"])]
+            for k, t in (("status", "Status"), ("metrics", "Numbers")):
+                if c.get(k):
+                    L += ["", f"{t} (from its README):"] + [f"- {x}" for x in c[k][:5]]
             top = sorted(kids(c["id"]), key=lambda n: -n["bytes"])[:8] if c.get("children") else []
             if top:
                 L += ["", "Biggest sub-trees: " + ", ".join(f"`{t['id'].split('/',2)[-1]}` ({_h(t['bytes'])})" for t in top)]
@@ -68,7 +78,7 @@ Secrets were redacted at ingest as `[REDACTED:*]`; skipped files are listed in c
     idx = {"schema": meta["schema"], "store": store_label or meta.get("store"), "catalog_digest": meta["catalog_digest"],
            "files": meta["files"],
            "roots": {r["id"]: {"files": r["files"], "bytes": r["bytes"]} for r in roots},
-           "projects": {c["id"]: {k: c[k] for k in ("files", "bytes", "summary", "readme", "children") if k in c} for c in (kids("repos") if "repos" in by else [])},
+           "projects": {c["id"]: {k: c[k] for k in ("files", "bytes", "summary", "readme", "children", "status", "metrics", "mtime_min", "mtime_max", "weekly") if k in c} for c in (kids("repos") if "repos" in by else [])},
            "trace_sources": {c["id"]: {"files": c["files"], "bytes": c["bytes"]} for c in (kids("traces") if "traces" in by else [])},
            "boxes": {b["alias"]: {k: b[k] for k in ("ssh", "user", "key", "key_vault", "proxy", "provider", "docs") if k in b} for b in boxes},
            "recipes": {"find": "ontolagni find <words>", "plan": "tracedb plan <path>", "read": "tracedb get <path> --head 4096",

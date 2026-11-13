@@ -107,3 +107,17 @@ def test_cli_roundtrip(tmp_path):
     assert run("verify", str(cat)).returncode == 0
     out = json.loads(run("find", "qwen").stdout)
     assert out and out[0]["id"].startswith("logs/qwen")
+
+
+def test_profile_fields_flow_to_nodes_and_agent_index(tmp_path):
+    import json
+    from ontolagni.build import build
+    from ontolagni.render import render
+    cat = [json.dumps({"path": "repos/p/a.py", "sha": "a" * 64, "size": 3, "meta": {"mtime": 1_700_000_000}}),
+           json.dumps({"path": "repos/p/b.py", "sha": "b" * 64, "size": 3, "meta": {"mtime": 1_700_900_000}})]
+    nodes, meta = build(cat, describe={"repos/p": {"summary": "P. does x.", "status": ["works"], "metrics": ["10 tok/s"]}})
+    p = next(n for n in nodes if n["id"] == "repos/p")
+    assert p["mtime_min"] == 1_700_000_000 and p["mtime_max"] == 1_700_900_000 and p["status"] == ["works"] and p["weekly"]
+    render(nodes, meta, str(tmp_path))
+    ai = json.load(open(tmp_path / "agent_index.json"))["projects"]["repos/p"]
+    assert ai["status"] == ["works"] and ai["metrics"] == ["10 tok/s"] and ai["mtime_max"] == 1_700_900_000
