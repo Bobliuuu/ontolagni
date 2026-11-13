@@ -121,3 +121,12 @@ def test_profile_fields_flow_to_nodes_and_agent_index(tmp_path):
     render(nodes, meta, str(tmp_path))
     ai = json.load(open(tmp_path / "agent_index.json"))["projects"]["repos/p"]
     assert ai["status"] == ["works"] and ai["metrics"] == ["10 tok/s"] and ai["mtime_max"] == 1_700_900_000
+
+
+def test_amd_and_blackwell_chip_tags():
+    from ontolagni.build import derive_tags
+    assert derive_tags("traces/push-boxes/mi300x")["chip"] == "mi300x"
+    assert derive_tags("traces/push-boxes/rtxpro6000/run-1")["chip"] == "rtxpro6000"
+    t = derive_tags("experiments/gpt-oss-120b-b200-20261113")
+    assert (t["chip"], t["model"], t["date"]) == ("b200", "gpt-oss-120b", "20261113")
+    assert derive_tags("experiments/kimi-k3-b300-20261010")["chip"] == "b300"
