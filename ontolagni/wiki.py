@@ -79,7 +79,7 @@ function show(id,push=true){const n=by[id];if(!n)return;sel=id;if(push)location.
  if(n.mtime_max)s+=`<p class=mut>Active ${day(n.mtime_min)} → ${day(n.mtime_max)} (${ago(n.mtime_max)})</p>`+spark(n.weekly);
  if(n.status)s+='<h3>Status <span class=mut>(from its README)</span></h3><ul>'+n.status.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
  if(n.metrics)s+='<h3>Numbers <span class=mut>(from its README)</span></h3><ul>'+n.metrics.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
- if(n.kind=='box'&&n.alias){s+=`<h3>Access</h3><table>${['ssh','user','key','key_vault','proxy','provider'].filter(f=>n[f]).map(f=>`<tr><th>${f}</th><td><code>${esc(n[f])}</code></td></tr>`).join('')}</table>`;
+ if(n.kind=='box'&&n.alias){s+=`<h3>Access</h3><table>${['ssh','status','lifecycle','provider','purpose','gpu','cpu','mem_gb','os','shell','user','key','key_vault','jump','proxy','has_main_key','last_verified','notes'].filter(f=>n[f]!==undefined&&n[f]!==''&&n[f]!==null).map(f=>`<tr><th>${f}</th><td><code>${esc(Array.isArray(n[f])?n[f].join(' | '):String(n[f]))}</code></td></tr>`).join('')}</table>`;
   if(n.docs)s+='<h3>Mentioned in</h3>'+n.docs.map(d=>`<div><code>${esc(d)}</code></div>`).join('')}
  if(n.formats&&Object.keys(n.formats).length)s+='<h3>Formats</h3><p>'+Object.entries(n.formats).sort((a,b)=>b[1]-a[1]).map(([f,c])=>`<code>${esc(f)}</code> ${c.toLocaleString()}`).join(' · ')+'</p>';
  if(k.length){s+=`<h3>Children (${k.length})</h3><table>`+k.slice(0,300).map(c=>`<tr><td><a data-go="${esc(c.id)}">${esc(c.id.split('/').pop())}</a></td><td>${(c.files||0).toLocaleString()} files</td><td>${h(c.bytes||0)}</td><td style="width:25%"><div class=bar style="width:${Math.round(100*(c.bytes||0)/mx)}%"></div></td></tr>`).join('')+'</table>'}

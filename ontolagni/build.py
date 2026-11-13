@@ -12,7 +12,7 @@ CAMPAIGN_RE = re.compile(
 MODELS = ["glm-5.3-flash", "kimi-k3", "gemma-4-31b", "qwen3.8-27b", "qwen3.5", "qwen", "gemma", "glm", "kimi", "deepseek"]
 CHIPS = ["b300", "h100", "a100", "g7e", "a10g", "tiramisu", "l4", "g5", "g6"]
 ROOT_KIND = {"config": "config", "repos": "repo", "traces": "trace", "index": "index", "boxes": "box", "logs": "logs", "research": "research", "experiments": "experiment", "data": "dataset",
-             "docs": "docs", "reports": "report", "bugs": "bug", "evals": "eval", "traces": "trace"}
+             "docs": "docs", "reports": "report", "skills": "skill", "setup": "setup", "bugs": "bug", "evals": "eval", "traces": "trace"}
 FMT = {".jsonl": "jsonl", ".json": "json", ".md": "md", ".log": "log", ".csv": "csv", ".tsv": "tsv",
        ".gz": "gz", ".txt": "txt", ".py": "py", ".sh": "sh", ".sqlite": "sqlite", ".so": "bin", ".npy": "npy", ".npz": "npz", ".pt": "pt", ".bin": "bin", ".parquet": "parquet", ".pkl": "pkl", ".png": "png", ".pdf": "pdf", ".gif": "gif", ".zst": "zst", ".tpq": "tpq"}
 SCHEMA_VERSION = 2
@@ -61,7 +61,7 @@ def group_key(path: str, depth: int) -> str:
 
 
 def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: dict | None = None,
-          extra_nodes: list | None = None) -> tuple[list[dict], dict]:
+          extra_nodes: list | None = None, annotate: dict | None = None) -> tuple[list[dict], dict]:
     """Nodes at depth 1 (root), 2 (campaign/dataset) and 3 (sub-group). Files shallower than a depth belong to their parent only."""
     acc: dict[str, dict] = {}
     cat_h = hashlib.sha256()
@@ -128,6 +128,9 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
             for k in ("status", "metrics"):  # README-derived progress lines / numbers; verbatim, never invented
                 if describe[g].get(k):
                     node[k] = describe[g][k][:8]
+        for k, v in ((annotate or {}).get(g) or {}).items():  # extra facts from a registry (skills manifest); never digest fields
+            if k not in ("id", "digest", "files", "bytes", "depth", "parent", "children"):
+                node[k] = v
         node["text"] = " ".join(filter(None, [node.get("summary", ""), tags.get("project", ""), tags.get("source", ""), g.replace("/", " ").replace("-", " ").replace("_", " "),
                                              tags.get("model", ""), tags.get("chip", ""), tags.get("kind", ""),
                                              tags.get("date", ""), " ".join(a["fmts"]), " ".join(node.get("keys", []))]))
@@ -151,3 +154,31 @@ def write(nodes, meta, out_dir):
             f.write(json.dumps(n, separators=(",", ":"), sort_keys=True) + "\n")
     with open(os.path.join(out_dir, "meta.json"), "w") as f:
         json.dump(meta, f, indent=1, sort_keys=True)
+
+
+KEEP_NEW = {"id", "digest", "files", "bytes", "formats", "depth", "parent", "children", "text", "mtime_min", "mtime_max", "weekly",
+            "ts_min", "ts_max", "keys"}
+
+
+def carry(nodes: list[dict], prev_lines) -> tuple[list[dict], dict]:
+    """Merge a previously published ontology into a fresh build, so nodes and fields other writers added survive a rebuild.
+    Same id: fill fields the new node lacks (summaries, overlays' tags...); box docs are unioned.
+    Id absent from the new build (an overlay node another session published): kept, marked synthetic + carried."""
+    by = {n["id"]: n for n in nodes}
+    stats = {"filled": 0, "carried": 0}
+    for line in prev_lines:
+        if not line.strip():
+            continue
+        o = json.loads(line)
+        n = by.get(o["id"])
+        if n is None:
+            o["synthetic"] = True; o["carried"] = True
+            nodes.append(o); by[o["id"]] = o; stats["carried"] += 1
+            continue
+        for k, v in o.items():
+            if k not in KEEP_NEW and k not in n:
+                n[k] = v; stats["filled"] += 1
+        if o.get("docs") and n.get("alias"):
+            n["docs"] = sorted(set(n.get("docs", [])) | set(o["docs"]))[:25]
+    nodes.sort(key=lambda n: n["id"])
+    return nodes, stats

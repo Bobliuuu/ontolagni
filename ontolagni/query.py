@@ -95,7 +95,10 @@ class Onto:
             if n.get("summary"):
                 add(n["summary"], W_KEY)
             if n.get("synthetic"):
-                add(" ".join(str(n.get(f_, "")) for f_ in ("alias", "provider", "purpose", "host_kind")), W_TAG)
+                add(" ".join(str(n.get(f_, "")) for f_ in ("alias", "provider", "purpose", "host_kind", "cpu", "os", "lifecycle")), W_TAG)
+                add(" ".join(str(x) for f_ in ("gpu", "tags") for x in (n.get(f_) or [])), W_TAG)
+            if n.get("skill"):
+                add(f"skill skills {n['skill']} " + ("user installed" if n.get("user_installed") else "repo local"), W_TAG)
             for f_ in n.get("formats", {}):
                 add(f_, W_FMT)
             self._idt[i] = idt

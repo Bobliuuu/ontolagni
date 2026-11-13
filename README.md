@@ -96,6 +96,9 @@ File and byte counts (blob pointers count at their real size), format counts, to
 | `ontolagni where <path>` | owner chain of a path |
 | `ontolagni show <id>` | one node card |
 | `ontolagni verify <catalog.jsonl>` | rebuild and compare every digest; exit 2 on drift |
+| `ontolagni build ... --boxes R.json --skills M.json --carry prev.jsonl` | merge a box registry and a skills manifest into boxes/ and skills/ nodes; keep nodes/fields of a previously published ontology |
+| `ontolagni publish --to s3://B/ontology/` | publish --dir with compare-and-swap; re-applies every overlays/*.jsonl, so rebuilds never drop other writers' nodes |
+| `ontolagni overlay N.jsonl --name W --to DEST` | add writer W's nodes to the published ontology (concurrency-safe; W's file is replaced wholesale) |
 | `ontolagni render` / `wiki --out DIR` | human ONTOLOGY.md, agent AGENT.md + agent_index.json, or a static HTML wiki (IP-like strings masked) |
 
 <a id="quick-start"></a>
