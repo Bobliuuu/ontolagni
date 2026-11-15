@@ -143,12 +143,16 @@ def publish(dest: str, nodes: list[dict] | None = None, meta: dict | None = None
     for attempt in range(tries):
         cur_b, etag = t.get("ontology.jsonl")
         cur_meta = json.loads(t.get("meta.json")[0] or b"{}")
+        excl = (meta or {}).get("scope_exclude") or cur_meta.get("scope_exclude") or []
         if nodes is None:
             merged = read_jsonl(cur_b or b"")
             m = dict(cur_meta)
         else:
-            merged, _ = carry([dict(n) for n in nodes], (cur_b or b"").decode().splitlines())
+            merged, _ = carry([dict(n) for n in nodes], (cur_b or b"").decode().splitlines(), exclude=excl)
             m = {**cur_meta, **(meta or {})}
+        if excl:  # out of scope (POLICY.json scope_exclude): never published, whoever wrote it
+            from .build import excluded
+            merged = [n for n in merged if not excluded(n["id"], excl)]
         ovs = t.overlays()
         merged = apply_overlays(merged, ovs)
         m["nodes"] = len(merged)

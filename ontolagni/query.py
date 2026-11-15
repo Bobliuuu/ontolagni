@@ -268,7 +268,7 @@ class Onto:
 def verify(onto: "Onto", catalog_lines) -> dict:
     """Correctness: rebuild from the catalog and compare every node digest, file count and byte count."""
     from .build import build
-    nodes, meta = build(catalog_lines)
+    nodes, meta = build(catalog_lines, exclude=onto.meta.get("scope_exclude") or ())
     want = {n["id"]: n for n in nodes}
     bad, missing, extra = [], [], []
     for i, n in want.items():

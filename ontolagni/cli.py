@@ -11,6 +11,8 @@ def main(argv=None):
     ap.add_argument("--dir", default=DEF)
     sp = ap.add_subparsers(dest="cmd", required=True)
     p = sp.add_parser("build"); p.add_argument("catalog"); p.add_argument("--store", default="")
+    p.add_argument("--policy", default="", help="POLICY.json whose scope_exclude subtrees are left out (default: --store's POLICY.json)")
+    p.add_argument("--no-scope", action="store_true", help="ignore POLICY.json scope_exclude")
     p.add_argument("--describe", help="JSON {node_id: {summary, readme}} (derived from READMEs)")
     p.add_argument("--ssh-config", action="append", default=[], help="ssh config file(s) -> boxes/<alias> nodes (path:store_path)")
     p.add_argument("--docs", action="append", default=[], help="LOCALDIR=STOREPREFIX docs scanned for box mentions")
@@ -60,10 +62,15 @@ def main(argv=None):
         if a.skills:
             from .access import skill_annotations
             ann = skill_annotations(json.load(open(a.skills)))
-        nodes, meta = build(f, max_depth=a.max_depth, store_label=a.store, describe=desc, extra_nodes=extra, annotate=ann)
+        from .build import load_scope_exclude
+        excl = [] if a.no_scope else load_scope_exclude(a.policy, a.store)
+        if excl:
+            print(f"scope: leaving out {len(excl)} subtrees (POLICY.json scope_exclude)", file=sys.stderr)
+        nodes, meta = build(f, max_depth=a.max_depth, store_label=a.store, describe=desc, extra_nodes=extra, annotate=ann,
+                            exclude=excl)
         if a.carry:
             from .build import carry
-            nodes, cs = carry(nodes, open(a.carry)); meta["nodes"] = len(nodes); meta["carried"] = cs
+            nodes, cs = carry(nodes, open(a.carry), exclude=excl); meta["nodes"] = len(nodes); meta["carried"] = cs
             pm = os.path.join(os.path.dirname(a.carry), "meta.json")
             if os.path.exists(pm):
                 for k, v in json.load(open(pm)).items():
