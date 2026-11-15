@@ -36,3 +36,17 @@ def test_carry_does_not_bring_excluded_back():
     out, st = carry(nodes, prev, exclude=["repos/fun"])
     ids = {n["id"] for n in out}
     assert "repos/fun" not in ids and "rsi/x" in ids and st["carried"] == 1
+
+
+def test_publish_keeps_excluded_out(tmp_path):
+    from ontolagni.publish import publish
+    d = tmp_path / "onto"; d.mkdir()
+    (d / "ontology.jsonl").write_text(json.dumps({"id": "repos/fun", "files": 1}) + "\n" + json.dumps({"id": "repos/keep", "files": 1}) + "\n")
+    (d / "meta.json").write_text("{}")
+    nodes, meta = build(cat("repos/keep/a.py"), exclude=["repos/fun"])
+    publish(str(d), nodes=nodes, meta=meta, render_docs=False)
+    ids = {json.loads(l)["id"] for l in (d / "ontology.jsonl").read_text().splitlines() if l.strip()}
+    assert "repos/fun" not in ids and "repos/keep" in ids
+    publish(str(d), render_docs=False)  # an overlay-only publish keeps it out too
+    ids = {json.loads(l)["id"] for l in (d / "ontology.jsonl").read_text().splitlines() if l.strip()}
+    assert "repos/fun" not in ids
