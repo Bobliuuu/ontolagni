@@ -60,9 +60,35 @@ def group_key(path: str, depth: int) -> str:
     return "/".join(p[:depth]) if len(p) > depth else None
 
 
+def load_scope_exclude(policy_path: str = "", store: str = "") -> list[str]:
+    """Subtrees the store's POLICY.json keeps out of the ontology (`scope_exclude`). Read from POLICY_PATH, else from
+    STORE/POLICY.json with the aws CLI when STORE is an s3:// URL. Missing policy or tools -> no exclusions."""
+    import os, subprocess
+    raw = None
+    if policy_path:
+        raw = open(policy_path).read()
+    elif store.startswith("s3://"):
+        try:
+            r = subprocess.run(["aws", "s3", "cp", store.rstrip("/") + "/POLICY.json", "-"], capture_output=True, text=True,
+                               timeout=60, env=os.environ)
+            raw = r.stdout if r.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError):
+            raw = None
+    if not raw:
+        return []
+    return sorted({p.strip("/") for p in (json.loads(raw).get("scope_exclude") or []) if p.strip("/")})
+
+
+def excluded(path: str, exclude) -> bool:
+    return any(path == e or path.startswith(e + "/") for e in exclude)
+
+
 def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: dict | None = None,
-          extra_nodes: list | None = None, annotate: dict | None = None) -> tuple[list[dict], dict]:
-    """Nodes at depth 1 (root), 2 (campaign/dataset) and 3 (sub-group). Files shallower than a depth belong to their parent only."""
+          extra_nodes: list | None = None, annotate: dict | None = None, exclude=()) -> tuple[list[dict], dict]:
+    """Nodes at depth 1 (root), 2 (campaign/dataset) and 3 (sub-group). Files shallower than a depth belong to their parent only.
+    Paths under an EXCLUDE prefix (POLICY.json `scope_exclude`: out of scope for the ontology) are skipped entirely."""
+    exclude = tuple(e.strip("/") for e in exclude if e.strip("/"))
+    n_excluded = 0
     acc: dict[str, dict] = {}
     cat_h = hashlib.sha256()
     n_files = 0
@@ -71,6 +97,9 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
             continue
         r = json.loads(line)
         path, sha = r["path"], r["sha"]
+        if exclude and excluded(path, exclude):
+            n_excluded += 1
+            continue
         m_ = r.get("meta") or {}
         size = m_.get("blob_size", r["size"])  # large files are stored as pointers; count their real size
         n_files += 1
@@ -143,6 +172,8 @@ def build(catalog_lines, max_depth: int = 4, store_label: str = "", describe: di
     nodes.sort(key=lambda n: n["id"])
     meta = {"schema": SCHEMA_VERSION, "files": n_files, "nodes": len(nodes), "catalog_digest": cat_h.hexdigest(),
             "store": store_label}
+    if exclude:
+        meta["scope_exclude"] = list(exclude); meta["scope_excluded_files"] = n_excluded
     return nodes, meta
 
 
@@ -160,16 +191,19 @@ KEEP_NEW = {"id", "digest", "files", "bytes", "formats", "depth", "parent", "chi
             "ts_min", "ts_max", "keys"}
 
 
-def carry(nodes: list[dict], prev_lines) -> tuple[list[dict], dict]:
+def carry(nodes: list[dict], prev_lines, exclude=()) -> tuple[list[dict], dict]:
     """Merge a previously published ontology into a fresh build, so nodes and fields other writers added survive a rebuild.
     Same id: fill fields the new node lacks (summaries, overlays' tags...); box docs are unioned.
     Id absent from the new build (an overlay node another session published): kept, marked synthetic + carried."""
     by = {n["id"]: n for n in nodes}
     stats = {"filled": 0, "carried": 0}
+    exclude = tuple(e.strip("/") for e in exclude if e.strip("/"))
     for line in prev_lines:
         if not line.strip():
             continue
         o = json.loads(line)
+        if exclude and excluded(o["id"], exclude):  # out of scope: never carried back in
+            continue
         n = by.get(o["id"])
         if n is None:
             o["synthetic"] = True; o["carried"] = True
