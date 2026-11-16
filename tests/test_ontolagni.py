@@ -121,3 +121,22 @@ def test_profile_fields_flow_to_nodes_and_agent_index(tmp_path):
     render(nodes, meta, str(tmp_path))
     ai = json.load(open(tmp_path / "agent_index.json"))["projects"]["repos/p"]
     assert ai["status"] == ["works"] and ai["metrics"] == ["10 tok/s"] and ai["mtime_max"] == 1_700_900_000
+
+
+def test_find_never_returns_empty_and_points_to_full_text(onto):
+    o, _ = onto
+    r = o.find("zzqx nonexistentthing")
+    assert len(r) == 1 and r[0]["kind"] == "hint"
+    assert r[0]["next"]["search"] == "tracedb search 'zzqx nonexistentthing' --limit 20"
+    assert r[0]["next"]["runbook"] == "ontolagni find ops search"
+
+
+def test_ui_and_usage_words_find_each_other(tmp_path):
+    L = [json.dumps({"path": p, "sha": hashlib.sha256(p.encode()).hexdigest(), "size": 10, "meta": {}})
+         for p in ("ops/rsi-vis/README.md", "rsi/usage/gap-lanes.json", "logs/other/x.log")]
+    nodes, meta = build(L)
+    write(nodes, meta, str(tmp_path))
+    o = Onto(str(tmp_path))
+    for q in ("visualization", "dashboard", "viz"):
+        assert o.find(q)[0]["id"] == "ops/rsi-vis", q
+    assert o.find("claude spend")[0]["id"] == "rsi/usage"

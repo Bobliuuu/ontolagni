@@ -28,6 +28,21 @@ ALIAS = {
     "dialog": ["dialogs"], "dialogs": ["dialog", "transcripts"], "transcripts": ["dialogs"],
     "benchmark": ["bench"], "benchmarks": ["bench"], "stdout": ["log"], "logs": ["log"], "log": ["logs"],
 }
+# UI words: people say vis / viz / dashboard / page / viewer / ui for the same thing. Every one finds the others.
+_UI = ["vis", "viz", "visualization", "visualisation", "visualize", "dashboard", "dashboards", "viewer", "ui",
+       "webpage", "page", "site", "board", "localhost"]
+for _w in _UI:
+    ALIAS.setdefault(_w, [])
+    ALIAS[_w] += [x for x in ("vis", "visualization", "dashboard", "ui") if x != _w]
+# who used how much: usage, spend, tokens, seats, lanes
+for _w, _a in {"usage": ["tokens", "spend", "cost"], "spend": ["usage", "cost"], "cost": ["usage", "spend"],
+               "tokens": ["usage"], "claude": ["usage", "seats"], "claudes": ["claude", "usage", "seats"],
+               "percent": ["usage", "share"], "share": ["usage"], "lane": ["lanes", "seat"],
+               "lanes": ["lane", "seats"], "seat": ["seats", "lane"], "seats": ["seat", "lanes"]}.items():
+    ALIAS.setdefault(_w, [])
+    ALIAS[_w] += _a
+HINT = ("ontolagni find matches node ids, READMEs, summaries and tags only, never file contents. "
+        "Next: `ontolagni find ops search` (the search runbook), then `tracedb search` (full text).")
 STOP = {"the", "a", "an", "of", "for", "in", "on", "to", "and", "or", "all", "any", "show", "me", "where", "are",
         "is", "what", "which", "find", "get", "latest", "happened", "from", "with", "my", "our"}
 ROOT_WORDS = {"data": "dataset", "logs": "logs", "log": "logs", "research": "research", "experiments": "experiment",
@@ -209,6 +224,8 @@ class Onto:
                 s *= (0.4 + 0.6 * cov * cov) * self._sz[i]  # coordination (explain the whole query) x size sanity
                 if want_kind and n.get("kind") in want_kind:
                     s *= 1.3
+                if n.get("kind") == "ops":
+                    s *= 1.6  # ops pages are the curated "how/where is X" answers: they beat a raw path match
             out.append((-s, n["depth"], i))
         out.sort()
         out = out[:max(limit, 40)]
@@ -223,7 +240,12 @@ class Onto:
                     s *= 1.25  # every query word is in the id path
                 out[k] = (-s, d, i)
             out.sort()
-        return [self.card(self.nodes[i], -s) for s, _, i in out[:limit]]
+        res = [self.card(self.nodes[i], -s) for s, _, i in out[:limit]]
+        if words and not res:  # never answer with an empty list: say what find cannot see and where to look next
+            q = " ".join(words)
+            res = [{"id": None, "kind": "hint", "note": HINT,
+                    "next": {"runbook": "ontolagni find ops search", "search": f"tracedb search '{q}' --limit 20"}}]
+        return res
 
     def where(self, path: str):
         """Longest-prefix owner chain for a path or prefix."""
