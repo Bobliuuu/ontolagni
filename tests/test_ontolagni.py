@@ -126,6 +126,7 @@ def test_profile_fields_flow_to_nodes_and_agent_index(tmp_path):
 def test_amd_and_blackwell_chip_tags():
     from ontolagni.build import derive_tags
     assert derive_tags("traces/push-boxes/mi300x")["chip"] == "mi300x"
+    assert derive_tags("traces/push-boxes/mi350x")["chip"] == "mi350x"
     assert derive_tags("traces/push-boxes/rtxpro6000/run-1")["chip"] == "rtxpro6000"
     t = derive_tags("experiments/gpt-oss-120b-b200-20261113")
     assert (t["chip"], t["model"], t["date"]) == ("b200", "gpt-oss-120b", "20261113")
