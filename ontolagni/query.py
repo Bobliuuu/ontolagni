@@ -42,7 +42,7 @@ for _w, _a in {"usage": ["tokens", "spend", "cost"], "spend": ["usage", "cost"],
     ALIAS.setdefault(_w, [])
     ALIAS[_w] += _a
 # hardware vendors -> the chips we name things by; low-level code words; money words
-for _w, _a in {"amd": ["mi300x", "mi350x", "mi355x", "rocm", "amddroplet"], "nvidia": ["h100", "h200", "b200", "b300", "cuda"],
+for _w, _a in {"amd": ["mi300x", "mi350x", "mi355x", "rocm"], "nvidia": ["h100", "h200", "b200", "b300", "cuda"],
                "intel": ["arc", "b390", "xpu"], "assembly": ["sass", "asm", "ptx"], "asm": ["sass", "assembly", "ptx"],
                "sass": ["asm", "assembly"], "ptx": ["sass", "asm"], "money": ["spend", "cost", "usage"],
                "spent": ["spend", "usage", "cost"], "paid": ["spend", "cost"], "bill": ["spend", "cost", "usage"],
@@ -220,7 +220,7 @@ class Onto:
                 for y in self._years[:2]:
                     terms.append(("~" + f"{y}{MONTH_WORDS[m.group(1)]:02d}", 1.0))
                 q = q[:m.start()] + " " * (m.end() - m.start()) + q[m.end():]
-        raw = [w.strip(".") for w in toks(q)]  # "flash." / "droplet..." at the end of a sentence
+        raw = [w.strip(".") for w in toks(q)]  # "box." / "logs..." at the end of a sentence
         raw = [w for w in raw if w]
         words = [w for w in raw if w not in STOP or len(raw) == 1]
         seen = set()
@@ -237,13 +237,13 @@ class Onto:
         return terms, words
 
     def _repair(self, w: str) -> list:
-        """Extra terms for words people type that are not index terms as written: a typo ("visualzation"), two words
-        run together ("gaplanes" -> gap + lanes), or one part of an id written as one token ("droplet" in amddroplet,
-        "next" in flashnext)."""
+        """Extra terms for words people type that are not index terms as written: a typo ("dashbaord"), two words
+        run together ("loadbalancer" -> load + balancer), or one part of an id written as one token ("cache" in
+        kvcache)."""
         if len(w) < 4 or w.isdigit() or not w[0].isalpha():
             return []
         out = []
-        if len(self._inv.get(w, ())) <= 2:  # unknown or nearly so ("gaplanes" in one stray note): try repairs too
+        if len(self._inv.get(w, ())) <= 2:  # unknown or nearly so (one stray note): try repairs too
             best = None
             for i in range(3, len(w) - 2):
                 a, b = w[:i], w[i:]
