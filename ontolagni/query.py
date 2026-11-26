@@ -254,10 +254,17 @@ class Onto:
             if len(w) >= 5:
                 cands = [v for L in range(len(w) - 2, len(w) + 3) for v in self._by_len().get((w[0], L), ())]
                 out += [(c, 1.0) for c in difflib.get_close_matches(w, cands, n=2, cutoff=0.84) if c != w]
-        inside = [v for v in self._vocab if w in v and not v.startswith(w) and v != w]
+        inside = [v for v in self._vocab if w in v and not v.startswith(w) and v != w and self._joined(v, w)]
         if 0 < len(inside) <= 200:  # a word inside a few ids; skip near-universal fragments
             out += [(v, 0.5) for v in inside[:48]]
         return out
+
+    def _joined(self, v: str, w: str) -> bool:
+        """v is w joined to other index words ("kv" + "cache"), not a longer word that merely contains w
+        ("dia" + "logs" is dialogs)."""
+        i = v.find(w)
+        left, right = v[:i], v[i + len(w):]
+        return all(not x or (len(x) >= 2 and x in self._inv) for x in (left, right))
 
     def _by_len(self):
         """(first letter, length) -> alphabetic vocabulary terms, for typo repair. Built on first use, not cached."""

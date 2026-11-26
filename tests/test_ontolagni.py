@@ -27,14 +27,21 @@ def onto(tmp_path_factory):
     return Onto(d), d
 
 
+OPTIONAL = {"boto3"}  # imported lazily by publish.py for s3:// destinations (documented optional dependency)
+
+
 def test_siloed_no_store_imports():
+    """ontolagni never imports the store (traceDB); everything else is stdlib, plus lazily imported optional deps."""
     bad = []
     for f in glob.glob(f"{ROOT}/ontolagni/*.py"):
-        for n in ast.walk(ast.parse(open(f).read())):
+        tree = ast.parse(open(f).read())
+        top = set(map(id, tree.body))
+        for n in ast.walk(tree):
             mods = [a.name for a in n.names] if isinstance(n, ast.Import) else \
                    [n.module or ""] if isinstance(n, ast.ImportFrom) and n.level == 0 else []
-            for m in mods:
-                if m.split(".")[0] not in sys.stdlib_module_names and m.split(".")[0] != "ontolagni":
+            for m in (x.split(".")[0] for x in mods):
+                if m == "tracedb" or (m not in sys.stdlib_module_names and m != "ontolagni"
+                                      and (m not in OPTIONAL or id(n) in top)):
                     bad.append((f, m))
     assert not bad, bad
 
@@ -42,19 +49,20 @@ def test_siloed_no_store_imports():
 def test_derived_fields(onto):
     o, _ = onto
     n = o.nodes["logs/deepseek-h100-20260115"]
-    assert n["model"] == "qwen" and n["chip"] == "g7e" and n["date"] == "20261021" and n["kind"] == "logs"
-    assert o.nodes["logs/llama-mmlu-a100-20260203"]["chip"] == "b300"
+    assert n["model"] == "deepseek" and n["chip"] == "h100" and n["date"] == "20260115" and n["kind"] == "logs"
+    assert o.nodes["logs/llama-mmlu-a100-20260203"]["chip"] == "a100"
     assert "date" not in o.nodes["logs/gemma-2b-l4"]  # nothing invented
 
 
 def test_find_ranks_and_filters(onto):
     o, _ = onto
-    r = o.find("qwen vllm logs")
+    r = o.find("deepseek vllm logs")
     assert r[0]["id"].startswith("logs/deepseek-h100-20260115")
-    assert all(x["chip"] == "b300" for x in o.find("", chip="b300", depth=2) if "chip" in x)
+    assert all(x["chip"] == "a100" for x in o.find("", chip="a100", depth=2) if "chip" in x)
     assert o.find("dialogs agent")[0]["id"].endswith("dialogs") or "dialogs" in o.find("dialogs agent")[0]["id"]
     assert o.find("prompt")[0]["id"].startswith("data/sample-h100")  # matched via schema keys
-    assert o.find("zzzznotthere") == []
+    miss = o.find("zzzznotthere")  # never an empty answer: one hint card saying where to look next
+    assert len(miss) == 1 and miss[0]["kind"] == "hint" and miss[0]["id"] is None and "search" in miss[0]["next"]
 
 
 def test_where_longest_prefix(onto):
@@ -68,7 +76,7 @@ def test_where_longest_prefix(onto):
 
 def test_cards_always_carry_cost_and_plan_first(onto):
     o, _ = onto
-    c = o.find("qwen")[0]
+    c = o.find("deepseek")[0]
     assert c["next"]["est_raw_bytes"] == c["bytes"] and "tracedb ls" in c["next"]["list"]
 
 
@@ -111,8 +119,8 @@ def test_cli_roundtrip(tmp_path):
                                     capture_output=True, text=True, env=env)
     assert run("build", str(cat)).returncode == 0
     assert run("verify", str(cat)).returncode == 0
-    out = json.loads(run("find", "qwen").stdout)
-    assert out and out[0]["id"].startswith("logs/qwen")
+    out = json.loads(run("find", "deepseek").stdout)
+    assert out and out[0]["id"].startswith("logs/deepseek")
 
 
 def test_profile_fields_flow_to_nodes_and_agent_index(tmp_path):
