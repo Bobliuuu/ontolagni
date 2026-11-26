@@ -1,6 +1,6 @@
 """Query the ontology. Loads one small JSONL; everything in-memory; no network."""
 from __future__ import annotations
-import hashlib, json, math, os, pickle, re
+import difflib, hashlib, json, math, os, pickle, re
 from bisect import bisect_left
 from collections import defaultdict
 
@@ -41,6 +41,18 @@ for _w, _a in {"usage": ["tokens", "spend", "cost"], "spend": ["usage", "cost"],
                "lanes": ["lane", "seats"], "seat": ["seats", "lane"], "seats": ["seat", "lanes"]}.items():
     ALIAS.setdefault(_w, [])
     ALIAS[_w] += _a
+# hardware vendors -> the chips we name things by; low-level code words; money words
+for _w, _a in {"amd": ["mi300x", "mi350x", "mi355x", "rocm", "amddroplet"], "nvidia": ["h100", "h200", "b200", "b300", "cuda"],
+               "intel": ["arc", "b390", "xpu"], "assembly": ["sass", "asm", "ptx"], "asm": ["sass", "assembly", "ptx"],
+               "sass": ["asm", "assembly"], "ptx": ["sass", "asm"], "money": ["spend", "cost", "usage"],
+               "spent": ["spend", "usage", "cost"], "paid": ["spend", "cost"], "bill": ["spend", "cost", "usage"],
+               "key": ["keys", "ssh"], "keys": ["key", "ssh"], "box": ["boxes"], "boxes": ["box"],
+               "optimization": ["lever", "levers", "gains"], "optimizations": ["lever", "levers", "gains"],
+               "tricks": ["levers"], "wins": ["levers", "gains"], "competitors": ["companies", "leaders"],
+               "competitor": ["companies"], "forefront": ["leaders", "companies"], "leaders": ["companies"],
+               "companies": ["leaders"]}.items():
+    ALIAS.setdefault(_w, [])
+    ALIAS[_w] += [x for x in _a if x not in ALIAS[_w]]
 HINT = ("ontolagni find matches node ids, READMEs, summaries and tags only, never file contents. "
         "Next: `ontolagni find ops search` (the search runbook), then `tracedb search` (full text).")
 STOP = {"the", "a", "an", "of", "for", "in", "on", "to", "and", "or", "all", "any", "show", "me", "where", "are",
@@ -208,7 +220,9 @@ class Onto:
                 for y in self._years[:2]:
                     terms.append(("~" + f"{y}{MONTH_WORDS[m.group(1)]:02d}", 1.0))
                 q = q[:m.start()] + " " * (m.end() - m.start()) + q[m.end():]
-        words = [w for w in toks(q) if w not in STOP or len(toks(q)) == 1]
+        raw = [w.strip(".") for w in toks(q)]  # "flash." / "droplet..." at the end of a sentence
+        raw = [w for w in raw if w]
+        words = [w for w in raw if w not in STOP or len(raw) == 1]
         seen = set()
         for w in words:
             if w in seen:
@@ -219,7 +233,42 @@ class Onto:
                 terms.append((a, 0.6))
             if w.endswith("s") and len(w) > 4 and w[:-1] not in seen:
                 terms.append((w[:-1], 0.6))
+            terms += self._repair(w)
         return terms, words
+
+    def _repair(self, w: str) -> list:
+        """Extra terms for words people type that are not index terms as written: a typo ("visualzation"), two words
+        run together ("gaplanes" -> gap + lanes), or one part of an id written as one token ("droplet" in amddroplet,
+        "next" in flashnext)."""
+        if len(w) < 4 or w.isdigit() or not w[0].isalpha():
+            return []
+        out = []
+        if len(self._inv.get(w, ())) <= 2:  # unknown or nearly so ("gaplanes" in one stray note): try repairs too
+            best = None
+            for i in range(3, len(w) - 2):
+                a, b = w[:i], w[i:]
+                if a in self._inv and b in self._inv and (best is None or min(len(a), len(b)) > min(map(len, best))):
+                    best = (a, b)
+            if best:
+                out += [(best[0], 1.0), (best[1], 1.0)]
+            if len(w) >= 5:
+                cands = [v for L in range(len(w) - 2, len(w) + 3) for v in self._by_len().get((w[0], L), ())]
+                out += [(c, 1.0) for c in difflib.get_close_matches(w, cands, n=2, cutoff=0.84) if c != w]
+        inside = [v for v in self._vocab if w in v and not v.startswith(w) and v != w]
+        if 0 < len(inside) <= 200:  # a word inside a few ids; skip near-universal fragments
+            out += [(v, 0.5) for v in inside[:48]]
+        return out
+
+    def _by_len(self):
+        """(first letter, length) -> alphabetic vocabulary terms, for typo repair. Built on first use, not cached."""
+        b = getattr(self, "_bylen", None)
+        if b is None:
+            b = defaultdict(list)
+            for v in self._vocab:
+                if v.isalpha():
+                    b[(v[0], len(v))].append(v)
+            self._bylen = b
+        return b
 
     def find(self, text: str = "", kind=None, model=None, chip=None, campaign=None, depth=None, limit=10):
         q_raw = text.strip().lower()
