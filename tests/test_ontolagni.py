@@ -83,7 +83,7 @@ def test_verify_correct_then_detects_drift(onto):
     assert not v2["ok"]
 
 
-def test_quick_load_and_query(tmp_path):
+def test_quick_load_and_query(tmp_path, monkeypatch):
     # 40k-node scale (10x real: ~3.8k; field-weighted index build is part of load) must still load+query fast
     lines = []
     for c in range(400):
@@ -91,7 +91,13 @@ def test_quick_load_and_query(tmp_path):
             p = f"logs/camp{c}-b300-2026{(c%12)+1:02d}01/seat{j}/jobs/job{j}/x.log"
             lines.append(json.dumps({"path": p, "sha": hashlib.sha256(p.encode()).hexdigest(), "size": 10}))
     nodes, meta = build(lines); write(nodes, meta, str(tmp_path))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.setenv("ONTOLAGNI_CACHE", "0")
     t = time.process_time(); o = Onto(str(tmp_path)); load = time.process_time() - t  # CPU time: robust to a loaded box
+    monkeypatch.setenv("ONTOLAGNI_CACHE", "1")
+    Onto(str(tmp_path))  # builds and writes the cache
+    t = time.process_time(); oc = Onto(str(tmp_path)); cached = time.process_time() - t
+    assert cached < load / 2 and oc.find("camp77 seat3 x log") == o.find("camp77 seat3 x log"), (cached, load)
     t = time.process_time()
     for _ in range(50): o.find("camp77 seat3 x log")
     q = (time.process_time() - t) / 50

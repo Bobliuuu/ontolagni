@@ -1,6 +1,6 @@
 """Query the ontology. Loads one small JSONL; everything in-memory; no network."""
 from __future__ import annotations
-import json, math, os, re
+import hashlib, json, math, os, pickle, re
 from bisect import bisect_left
 from collections import defaultdict
 
@@ -48,6 +48,7 @@ STOP = {"the", "a", "an", "of", "for", "in", "on", "to", "and", "or", "all", "an
 ROOT_WORDS = {"data": "dataset", "logs": "logs", "log": "logs", "research": "research", "experiments": "experiment",
               "experiment": "experiment", "dataset": "dataset", "datasets": "dataset", "reports": "report"}
 W_LEAF, W_PATH, W_TAG, W_KEY, W_FMT = 3.0, 2.0, 1.5, 0.6, 0.3
+W_TEXT = 0.25  # page body (ops/memory pages carry it): a word deep in a page still finds it, below any id/summary match
 
 
 def toks(s: str):
@@ -67,8 +68,52 @@ def subtoks(t: str):
 
 
 class Onto:
+    _CACHED = ("meta", "nodes", "_inv", "_len", "_idt", "_avg", "_sz", "_vocab", "_years", "_maxfiles")
+
     def __init__(self, dir_: str):
         self.dir = dir_
+        cache = self._cache_path(dir_)
+        if cache:
+            try:
+                with open(cache, "rb") as f:
+                    self.__dict__.update(pickle.load(f))
+                return
+            except Exception:
+                pass
+        self._build(dir_)
+        if cache:  # building parses ~17k nodes (1-2 s); the pickle loads in a fraction of that
+            try:
+                os.makedirs(os.path.dirname(cache), exist_ok=True)
+                tmp = f"{cache}.{os.getpid()}"
+                with open(tmp, "wb") as f:
+                    pickle.dump({k: getattr(self, k) for k in self._CACHED}, f, protocol=pickle.HIGHEST_PROTOCOL)
+                os.replace(tmp, cache)
+                for old in os.listdir(os.path.dirname(cache)):  # drop caches of older ontology versions
+                    if old.startswith(os.path.basename(cache).split("-")[0]) and old != os.path.basename(cache):
+                        try:
+                            os.remove(os.path.join(os.path.dirname(cache), old))
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+
+    @staticmethod
+    def _cache_path(dir_: str):
+        """Built-index cache keyed by the ontology files' size+mtime and this module's source (a code change rebuilds).
+        ONTOLAGNI_CACHE=0 disables it."""
+        if os.environ.get("ONTOLAGNI_CACHE", "1") == "0":
+            return None
+        try:
+            st = [os.stat(os.path.join(dir_, f)) for f in ("ontology.jsonl", "meta.json")]
+            code = os.stat(__file__)
+        except OSError:
+            return None
+        where = hashlib.sha1(os.path.abspath(dir_).encode()).hexdigest()[:10]
+        ver = hashlib.sha1(repr([(s.st_size, s.st_mtime_ns) for s in st] + [code.st_size, code.st_mtime_ns]).encode()).hexdigest()[:12]
+        root = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+        return os.path.join(root, "ontolagni", f"{where}-{ver}.pkl")
+
+    def _build(self, dir_: str):
         with open(os.path.join(dir_, "meta.json")) as f:
             self.meta = json.load(f)
         self.nodes: dict[str, dict] = {}
@@ -117,7 +162,9 @@ class Onto:
             for f_ in n.get("formats", {}):
                 add(f_, W_FMT)
             self._idt[i] = idt
-            self._len[i] = sum(wtf.values())
+            self._len[i] = sum(wtf.values())  # body text is left out of the length: a long page must not bury its own id
+            if n.get("text"):
+                add(n["text"], W_TEXT)
             for w, c in wtf.items():
                 self._inv[w].append((i, c))
         self._avg = (sum(self._len.values()) / max(len(self._len), 1)) or 1
